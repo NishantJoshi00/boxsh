@@ -1,0 +1,11 @@
+[package]
+name = "nobox-core"
+description = "nobox virtual filesystem: block store, VFS, page cache. Pure, synchronous, zero dependencies."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+# D10: zero dependencies, enforced. Do not add any.
+[dependencies]

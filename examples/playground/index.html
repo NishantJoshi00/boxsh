@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>nobox playground</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --fg: #c9d1d9;
+      --dim: #8b949e;
+      --green: #3fb950;
+      --blue: #58a6ff;
+      --red: #f85149;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      height: 100%;
+      background: var(--bg);
+    }
+    body {
+      display: flex;
+      flex-direction: column;
+      font: 14px/1.45 "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+      color: var(--fg);
+      padding: 12px;
+    }
+    #screen {
+      flex: 1;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    #screen .err { color: var(--red); }
+    #screen .dim { color: var(--dim); }
+    .ps-user { color: var(--green); font-weight: 600; }
+    .ps-path { color: var(--blue); font-weight: 600; }
+    #entry { display: flex; align-items: baseline; }
+    #entry input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--fg);
+      font: inherit;
+      padding: 0 0 0 6px;
+      caret-color: var(--fg);
+    }
+  </style>
+</head>
+<body>
+  <div id="screen"></div>
+  <div id="entry"><span id="prompt"></span><input id="input" autocomplete="off" spellcheck="false" autofocus /></div>
+  <script type="module" src="./shell.js"></script>
+</body>
+</html>

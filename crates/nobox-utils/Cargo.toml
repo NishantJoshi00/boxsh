@@ -1,0 +1,14 @@
+[package]
+name = "nobox-utils"
+description = "nobox commands: native streaming commands, ported uutils, and bash (parser + evaluator). Each command behind a cargo feature."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+nobox-core = { path = "../nobox-core" }
+
+[features]
+default = []

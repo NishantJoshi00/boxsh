@@ -1,0 +1,59 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+  # Invariant #4 / D11: gzip size budget for the default-features engine.
+  SIZE_BUDGET_BYTES: 3145728
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: cargo fmt --all --check
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+
+  test-native:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: cargo test --workspace
+
+  test-wasm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install wasmtime (test runner only, not a shipped dependency)
+        run: |
+          curl -sSf https://wasmtime.dev/install.sh | bash
+          echo "$HOME/.wasmtime/bin" >> "$GITHUB_PATH"
+      - name: Unit tests on wasm32-wasip1 (invariant #10)
+        run: cargo test --workspace --target wasm32-wasip1
+      - name: Build engine artifact
+        run: cargo build --release --target wasm32-wasip1 -p nobox-abi
+      - name: Loader smoke test through the real artifact
+        working-directory: packages/nobox
+        run: |
+          npm ci
+          npm run build
+          node test/smoke.mjs
+
+  size-budget:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: cargo build --release --target wasm32-wasip1 -p nobox-abi
+      - name: Check gzip size against budget
+        run: |
+          gzip -9 -c target/wasm32-wasip1/release/nobox_abi.wasm > nobox_abi.wasm.gz
+          size=$(stat -c%s nobox_abi.wasm.gz)
+          echo "gzip size: $size bytes (budget: $SIZE_BUDGET_BYTES)"
+          test "$size" -le "$SIZE_BUDGET_BYTES"

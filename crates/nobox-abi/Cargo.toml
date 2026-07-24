@@ -1,0 +1,15 @@
+[package]
+name = "nobox-abi"
+description = "The only boundary: C-ABI surface over nobox — opaque handles, (ptr,len) buffers, integer error codes. wasm32-wasip1 host now, cdylib FFI hosts later."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+nobox-core = { path = "../nobox-core" }
+nobox-utils = { path = "../nobox-utils" }

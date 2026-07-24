@@ -1,0 +1,4 @@
+# Dev-time test runner for the wasm side of the dual-target matrix (D11).
+# `cargo test --target wasm32-wasip1` needs wasmtime on PATH.
+[target.wasm32-wasip1]
+runner = "wasmtime"
