@@ -10,6 +10,7 @@ fn main() {
     let rest = args.split_off(1);
     let cmd = rest[0].to_string_lossy().into_owned();
     let code = match cmd.as_str() {
+        "grep" => grep(&rest),
         "arch" => uu_arch::uumain(rest.into_iter()),
         "b2sum" => uu_b2sum::uumain(rest.into_iter()),
         "base32" => uu_base32::uumain(rest.into_iter()),
@@ -86,4 +87,76 @@ fn main() {
         _ => { eprintln!("unknown command: {cmd}"); 127 }
     };
     std::process::exit(code);
+}
+
+// Native grep — M4 preview (not in coreutils; the real one lands as a nobox
+// native command). Byte-safe via regex::bytes. Flags: -c -i -n -v.
+fn grep(args: &[OsString]) -> i32 {
+    use std::io::{Read, Write};
+    let (mut count_only, mut ignore_case, mut line_numbers, mut invert) = (false, false, false, false);
+    let mut pattern: Option<String> = None;
+    let mut files: Vec<String> = Vec::new();
+    for a in &args[1..] {
+        let s = a.to_string_lossy();
+        if s.starts_with('-') && s.len() > 1 && pattern.is_none() {
+            for ch in s[1..].chars() {
+                match ch {
+                    'c' => count_only = true,
+                    'i' => ignore_case = true,
+                    'n' => line_numbers = true,
+                    'v' => invert = true,
+                    _ => { eprintln!("grep: invalid option -- '{ch}'"); return 2; }
+                }
+            }
+        } else if pattern.is_none() {
+            pattern = Some(s.into_owned());
+        } else {
+            files.push(s.into_owned());
+        }
+    }
+    let Some(pat) = pattern else { eprintln!("usage: grep [-cinv] PATTERN [FILE...]"); return 2; };
+    let re = match regex::bytes::RegexBuilder::new(&pat).case_insensitive(ignore_case).build() {
+        Ok(r) => r,
+        Err(e) => { eprintln!("grep: invalid pattern: {e}"); return 2; }
+    };
+    let inputs: Vec<(String, Vec<u8>)> = if files.is_empty() {
+        let mut buf = Vec::new();
+        if std::io::stdin().read_to_end(&mut buf).is_err() { eprintln!("grep: read error"); return 2; }
+        vec![("(standard input)".into(), buf)]
+    } else {
+        let mut v = Vec::new();
+        for f in files {
+            match std::fs::read(&f) {
+                Ok(b) => v.push((f, b)),
+                Err(e) => { eprintln!("grep: {f}: {e}"); return 2; }
+            }
+        }
+        v
+    };
+    let stdout = std::io::stdout();
+    let mut out = stdout.lock();
+    let multi = inputs.len() > 1;
+    let mut any = false;
+    for (name, data) in &inputs {
+        let mut lines: Vec<&[u8]> = data.split(|&b| b == b'\n').collect();
+        if data.last() == Some(&b'\n') { lines.pop(); }
+        let mut count: u64 = 0;
+        for (i, line) in lines.iter().enumerate() {
+            if re.is_match(line) != invert {
+                any = true;
+                count += 1;
+                if !count_only {
+                    if multi { let _ = write!(out, "{name}:"); }
+                    if line_numbers { let _ = write!(out, "{}:", i + 1); }
+                    let _ = out.write_all(line);
+                    let _ = out.write_all(b"\n");
+                }
+            }
+        }
+        if count_only {
+            if multi { let _ = write!(out, "{name}:"); }
+            let _ = writeln!(out, "{count}");
+        }
+    }
+    if any { 0 } else { 1 }
 }

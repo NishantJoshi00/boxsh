@@ -108,10 +108,22 @@ async function main() {
   const N = 200;
   nb.run(["mkdir", "/b"]);
   if (jb) await jb.exec("mkdir -p /b");
-  renderRow(`write ${N}×1KB files`, [
+  renderRow(`write ${N}×1KB files (one command per file)`, [
     await timed(() => { for (let i = 0; i < N; i++) nb.run(["tee", `/b/f${i}`], kbB); return "tee, incl. spawn"; }),
     await jbCell(async () => { for (let i = 0; i < N; i++) await jb.exec(`tee /b/f${i}`, { stdin: kb }); return "tee, incl. exec"; }),
     await zfsCell(() => { zfs.mkdirSync("/b", { recursive: true }); for (let i = 0; i < N; i++) zfs.writeFileSync(`/b/f${i}`, kbB); return "writeFileSync (library call)"; }),
+  ]);
+  await tick();
+
+  say("bulk write, single command…");
+  nb.run(["mkdir", "/bulk"]);
+  if (jb) await jb.exec("mkdir -p /bulk");
+  if (zfs) { try { zfs.mkdirSync("/bulk", { recursive: true }); } catch {} }
+  const bulkNames = Array.from({ length: N }, (_, i) => `/bulk/g${i}`);
+  renderRow(`write ${N}×1KB files (ONE tee command)`, [
+    await timed(() => { nb.run(["tee", ...bulkNames], kbB); return "one spawn, N files — isolates the spawn tax"; }),
+    await jbCell(async () => { await jb.exec(`tee ${bulkNames.join(" ")}`, { stdin: kb }); return "one exec, N files"; }),
+    await zfsCell(() => { for (const n of bulkNames) zfs.writeFileSync(n, kbB); return "writeFileSync loop"; }),
   ]);
   await tick();
 
@@ -185,9 +197,9 @@ async function main() {
   await tick();
 
   // ---- their strengths: nobox is honest about its gaps ----
-  say("grep (their strength)…");
+  say("grep…");
   renderRow("grep -c 'fox' on 10MB", [
-    { na: "grep lands M4 (native)" },
+    await timed(() => { const r = nb.run(["grep", "-c", "fox"], text10b); return `${dec.decode(r.out).trim()} matches — native wasm grep (regex crate)`; }),
     await jbCell(async () => { const r = await jb.exec("grep -c fox", { stdin: text10 }); return `${r.stdout.trim()} matches`; }),
     { na: NA_SHELL },
   ]);
@@ -199,9 +211,13 @@ async function main() {
     await jbCell(async () => { await jb.exec("seq 1 200000 | tail -5"); return "native pipeline"; }),
     { na: NA_SHELL },
   ]);
-  renderRow("bash loop: for i in $(seq 1 500)", [
-    { na: "bash grammar lands M3" },
-    await jbCell(async () => { await jb.exec("for i in $(seq 1 500); do true; done"); return "full grammar today"; }),
+  renderRow("for i in $(seq 1 500); do true; done", [
+    await timed(() => {
+      const words = dec.decode(nb.run(["seq", "1", "500"]).out).trim().split("\n");
+      for (const w of words) nb.run(["true"]);
+      return "real spawn per iteration (builtin `true` lands M3)";
+    }),
+    await jbCell(async () => { await jb.exec("for i in $(seq 1 500); do true; done"); return "interpreter builtin"; }),
     { na: NA_SHELL },
   ]);
 

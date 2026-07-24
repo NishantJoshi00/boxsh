@@ -43,12 +43,8 @@
     <tbody id="rows"></tbody>
   </table>
   <p class="note">
-    Each tool competes where it has the capability; <span style="color:var(--fg)">–</span>
-    marks honest gaps (ZenFS has no shell; nobox has no grep/loops until M3/M4;
-    ZenFS pays no process cost — it's a library call). just-bash and ZenFS load
-    from esm.sh, so first run needs network. nobox numbers include full
-    command-spawn cost per operation. All three run in this tab, same machine,
-    same moment.
+    just-bash and ZenFS load from esm.sh (first run needs network). All three
+    run in this tab, same machine, same moment.
   </p>
   <script type="module" src="./compare.js"></script>
 </body>

@@ -9,6 +9,7 @@ license = "MIT OR Apache-2.0"
 [workspace]
 
 [dependencies]
+regex = "1"
 uu_arch = "0.9"
 uu_b2sum = "0.9"
 uu_base32 = "0.9"

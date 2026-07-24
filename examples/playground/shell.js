@@ -412,12 +412,13 @@ function parse(tokens) {
   return chains.filter((c) => c.pipeline.some((s) => s.argv.length));
 }
 
-const KNOWN = new Set(("arch b2sum base32 base64 basename basenc cat cksum comm cp csplit cut date dd dir dircolors " +
+const KNOWN = new Set(("grep arch b2sum base32 base64 basename basenc cat cksum comm cp csplit cut date dd dir dircolors " +
   "dirname echo expand factor false fmt fold head join link ln ls md5sum mkdir mktemp mv nl nproc numfmt od paste " +
   "pathchk pr printenv printf ptx pwd readlink realpath rm rmdir seq sha1sum sha224sum sha256sum sha384sum sha512sum " +
   "shred shuf sleep sort split sum tail tee touch tr true truncate tsort uname unexpand uniq unlink vdir wc yes").split(" "));
 
 const BUILTINS = {
+  ":": () => ({ code: 0 }),
   cd(args) {
     const target = norm(
       (args[0] ?? env.HOME).startsWith("/") ? args[0] ?? env.HOME : `${cwd}/${args[0]}`,
@@ -459,23 +460,74 @@ const BUILTINS = {
   help: () => ({
     out:
       "nobox playground — ported GNU coreutils (via uutils) on a virtual filesystem, in your tab.\n" +
-      "shell features: pipes |   redirects > >> <   heredocs <<EOF   chaining && || ;   quotes   $VARS   cd/export\n" +
+      "shell features: pipes |   redirects > >> <   heredocs <<EOF   $(cmd)   for..in..done   && || ;   quotes   $VARS   cd/export\n" +
       "commands: " + [...KNOWN].sort().join(" ") + "\n" +
       "builtins: " + Object.keys(BUILTINS).sort().join(" ") + "\n" +
-      "not yet: bash scripting (M3), grep/sed/find (M4, native), persistence across refresh (M2, OPFS)\n",
+      "not yet: full bash (M3), sed/find/awk (M4), persistence across refresh (M2, OPFS)\n",
     code: 0,
   }),
   clear: () => (screen.textContent = "", { code: 0 }),
 };
 
-function execLine(line, heredocBody = null) {
+let subDepth = 0;
+// $(cmd) command substitution: run the inner line in capture mode, splice
+// its stdout back in (word-splitting approximated by whitespace collapse).
+// Skipped inside single quotes, like bash.
+function expandSubs(line) {
+  if (!line.includes("$(")) return line;
+  if (subDepth > 8) throw new Error("command substitution nested too deep");
+  let out = "", i = 0, sq = false;
+  while (i < line.length) {
+    const c = line[i];
+    if (c === "'") { sq = !sq; out += c; i++; }
+    else if (!sq && c === "$" && line[i + 1] === "(") {
+      let depth = 1, j = i + 2;
+      for (; j < line.length && depth; j++) {
+        if (line[j] === "(") depth++;
+        else if (line[j] === ")") depth--;
+      }
+      if (depth) throw new Error("unterminated $( )");
+      subDepth++;
+      let text;
+      try { text = dec.decode(execLine(line.slice(i + 2, j - 1), null, true)); }
+      finally { subDepth--; }
+      out += text.replace(/\s+/g, " ").trim();
+      i = j;
+    } else { out += c; i++; }
+  }
+  return out;
+}
+
+function execLine(line, heredocBody = null, capture = false) {
+  const captured = [];
+  const done = () => (capture ? concat(captured) : undefined);
+  // single-line for-loop: list expanded once, body re-executed per word
+  const fm = /^\s*for\s+([A-Za-z_]\w*)\s+in\s+(.+?)\s*;\s*do\s+(.+?)\s*;?\s*done\s*$/.exec(line);
+  if (fm) {
+    let words;
+    try { words = expand(expandSubs(fm[2])).split(/\s+/).filter(Boolean); }
+    catch (e) { printErr(`nobox: ${e.message}\n`); lastStatus = 2; return done(); }
+    for (const w of words) {
+      env[fm[1]] = w;
+      const r = execLine(fm[3], null, capture);
+      if (capture && r?.length) captured.push(r);
+    }
+    return done();
+  }
+  try {
+    line = expandSubs(line);
+  } catch (e) {
+    printErr(`nobox: ${e.message}\n`);
+    lastStatus = 2;
+    return done();
+  }
   let chains;
   try {
     chains = parse(tokenize(line));
   } catch (e) {
     printErr(`nobox: parse error: ${e.message}\n`);
     lastStatus = 2;
-    return;
+    return done();
   }
   let skip = null;
   for (const { pipeline, joiner } of chains) {
@@ -515,11 +567,14 @@ function execLine(line, heredocBody = null) {
         if (st.out) {
           const p = norm(st.out.startsWith("/") ? st.out : `${cwd}/${st.out}`);
           writeFile(p, data, st.append);
+        } else if (capture) {
+          if (data.length) captured.push(data);
         } else if (data.length) print(dec.decode(data));
       }
     }
     skip = joiner;
   }
+  return done();
 }
 
 // ---------- terminal ----------

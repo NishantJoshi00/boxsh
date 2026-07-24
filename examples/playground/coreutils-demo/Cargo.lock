@@ -374,6 +374,7 @@ dependencies = [
 name = "coreutils-demo"
 version = "0.0.1"
 dependencies = [
+ "regex",
  "uu_arch",
  "uu_b2sum",
  "uu_base32",
