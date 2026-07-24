@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>nobox vs the field</title>
+  <style>
+    :root { --bg:#0d1117; --fg:#c9d1d9; --dim:#8b949e; --green:#3fb950; --blue:#58a6ff; --red:#f85149; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100vh; background: var(--bg); color: var(--fg);
+      font: 14px/1.5 "SF Mono", ui-monospace, Menlo, Consolas, monospace; padding: 24px;
+    }
+    h1 { font-size: 16px; color: var(--green); }
+    button {
+      background: transparent; color: var(--blue); border: 1px solid var(--blue);
+      font: inherit; padding: 4px 14px; cursor: pointer; border-radius: 4px;
+    }
+    button:disabled { opacity: 0.4; cursor: default; }
+    #status { color: var(--dim); margin: 12px 0; }
+    table { border-collapse: collapse; margin-top: 8px; width: 100%; max-width: 900px; }
+    th, td { text-align: left; padding: 6px 16px 6px 0; border-bottom: 1px solid #21262d; vertical-align: top; }
+    th { color: var(--dim); font-weight: 600; }
+    td .v { color: var(--green); }
+    td .best { text-decoration: underline; }
+    td .na { color: var(--dim); }
+    td .err { color: var(--red); }
+    td .d { color: var(--dim); font-size: 12px; }
+    .note { color: var(--dim); max-width: 900px; margin-top: 18px; }
+  </style>
+</head>
+<body>
+  <h1>nobox vs just-bash vs ZenFS — in this browser, right now</h1>
+  <button id="run">run</button>
+  <div id="status">idle</div>
+  <table>
+    <thead><tr>
+      <th>benchmark</th>
+      <th>nobox<br /><span style="font-weight:400">wasm coreutils + store</span></th>
+      <th>just-bash<br /><span style="font-weight:400">TS interpreter + its FS</span></th>
+      <th>ZenFS<br /><span style="font-weight:400">fs library (InMemory, v1.11 — v2 won't survive CDN bundling)</span></th>
+    </tr></thead>
+    <tbody id="rows"></tbody>
+  </table>
+  <p class="note">
+    Each tool competes where it has the capability; <span style="color:var(--fg)">–</span>
+    marks honest gaps (ZenFS has no shell; nobox has no grep/loops until M3/M4;
+    ZenFS pays no process cost — it's a library call). just-bash and ZenFS load
+    from esm.sh, so first run needs network. nobox numbers include full
+    command-spawn cost per operation. All three run in this tab, same machine,
+    same moment.
+  </p>
+  <script type="module" src="./compare.js"></script>
+</body>
+</html>
