@@ -15,7 +15,7 @@ function makeText(mb) {
   return line.repeat(Math.ceil((mb * 1024 * 1024) / line.length));
 }
 
-// cell result: {ms, detail} | {na: reason} | {err}
+// cell result: {ms, detail} | {text, cls, detail} | {na: reason} | {err}
 function renderRow(name, cells) {
   const tr = document.createElement("tr");
   const best = Math.min(...cells.filter((c) => c.ms !== undefined).map((c) => c.ms));
@@ -23,6 +23,9 @@ function renderRow(name, cells) {
     `<td>${name}</td>` +
     cells
       .map((c) => {
+        if (c.text !== undefined)
+          return `<td><span class="${c.cls ?? "v"}">${c.text}</span>` +
+                 (c.detail ? `<br /><span class="d">${c.detail}</span>` : "") + `</td>`;
         if (c.ms !== undefined)
           return `<td><span class="v ${c.ms === best ? "best" : ""}">${fmt(c.ms)} ms</span>` +
                  (c.detail ? `<br /><span class="d">${c.detail}</span>` : "") + `</td>`;
@@ -196,7 +199,103 @@ async function main() {
   ]);
   await tick();
 
-  // ---- their strengths: nobox is honest about its gaps ----
+  // ---- binary safety: verdicts, not milliseconds ----
+  say("binary safety…");
+  const bin = new Uint8Array(65536);
+  for (let i = 0; i < bin.length; i++) bin[i] = i & 0xff;
+  const truthHex = [...new Uint8Array(await crypto.subtle.digest("SHA-256", bin))]
+    .map((b) => b.toString(16).padStart(2, "0")).join("");
+  // best-possible encoding for just-bash's string-only boundary: one code
+  // unit per byte (latin-1 mapping). The boundary itself is what's on trial.
+  const latin1 = Array.from(bin, (b) => String.fromCharCode(b)).join("");
+  const strToBytes = (s) => {
+    const a = new Uint8Array(s.length);
+    let wide = false;
+    for (let i = 0; i < s.length; i++) {
+      const c = s.charCodeAt(i);
+      if (c > 255) wide = true;
+      a[i] = c & 0xff;
+    }
+    return { a, wide };
+  };
+  const bytesEq = (x, y) => x.length === y.length && x.every((v, i) => v === y[i]);
+  const OK = (detail) => ({ text: "intact", cls: "v", detail });
+  const BAD = (detail) => ({ text: "CORRUPTED", cls: "err", detail });
+
+  {
+    const r = nb.run(["sha256sum"], bin);
+    const nbCell = dec.decode(r.out).slice(0, 64) === truthHex
+      ? OK("hash of output == hash of the actual bytes")
+      : BAD("hash mismatch");
+    let jbc = { na: NA_JB };
+    if (jb) {
+      try {
+        const r2 = await jb.exec("sha256sum", { stdin: latin1 });
+        jbc = r2.stdout.slice(0, 64) === truthHex
+          ? OK("string boundary preserved the bytes")
+          : BAD("hashed different bytes than it was given");
+      } catch (e) { jbc = BAD(String(e).slice(0, 70)); }
+    }
+    renderRow("binary fidelity: sha256sum of 64KB, all 256 byte values", [nbCell, jbc, { na: NA_SHELL }]);
+  }
+  await tick();
+
+  {
+    nb.run(["tee", "/bin.dat"], bin);
+    const back = nb.run(["cat", "/bin.dat"]).out;
+    const nbCell = bytesEq(bin, back) ? OK("tee → cat, byte-identical") : BAD("bytes changed in transit");
+    let jbc = { na: NA_JB };
+    if (jb) {
+      try {
+        await jb.exec("tee /bin.dat", { stdin: latin1 });
+        const r2 = await jb.exec("cat /bin.dat");
+        const { a, wide } = strToBytes(r2.stdout);
+        jbc = !wide && bytesEq(bin, a)
+          ? OK("survived as code units")
+          : BAD(`read back ${r2.stdout.length} units for ${bin.length} bytes`);
+      } catch (e) { jbc = BAD(String(e).slice(0, 70)); }
+    }
+    let zc = { na: NA_ZFS };
+    if (zfs) {
+      try {
+        zfs.writeFileSync("/bin.dat", bin);
+        zc = bytesEq(bin, new Uint8Array(zfs.readFileSync("/bin.dat"))) ? OK("byte API") : BAD("bytes changed");
+      } catch (e) { zc = BAD(String(e).slice(0, 70)); }
+    }
+    renderRow("binary round-trip: write then read 64KB", [nbCell, jbc, zc]);
+  }
+  await tick();
+
+  {
+    // 1000 known match lines interleaved with binary junk lines
+    const parts = [];
+    const junk = new Uint8Array(64);
+    for (let i = 0; i < 1000; i++) {
+      parts.push(enc.encode("the fox jumps\n"));
+      crypto.getRandomValues(junk);
+      for (let j = 0; j < junk.length; j++) if (junk[j] === 0x0a) junk[j] = 0x0b;
+      parts.push(junk.slice());
+      parts.push(enc.encode("\n"));
+    }
+    const total = parts.reduce((n, p) => n + p.length, 0);
+    const noisy = new Uint8Array(total);
+    let at = 0;
+    for (const p of parts) { noisy.set(p, at); at += p.length; }
+
+    const nbN = dec.decode(nb.run(["grep", "-c", "fox"], noisy).out).trim();
+    const nbCell = nbN === "1000" ? OK("1000/1000 matches in binary stream") : BAD(`counted ${nbN}, expected 1000`);
+    let jbc = { na: NA_JB };
+    if (jb) {
+      try {
+        const r2 = await jb.exec("grep -c fox", { stdin: Array.from(noisy, (b) => String.fromCharCode(b)).join("") });
+        const n = r2.stdout.trim();
+        jbc = n === "1000" ? OK("1000/1000") : BAD(`counted ${n || "(nothing)"}, expected 1000`);
+      } catch (e) { jbc = BAD(String(e).slice(0, 70)); }
+    }
+    renderRow("grep -c through binary noise (1000 known matches)", [nbCell, jbc, { na: NA_SHELL }]);
+  }
+  await tick();
+
   say("grep…");
   renderRow("grep -c 'fox' on 10MB", [
     await timed(() => { const r = nb.run(["grep", "-c", "fox"], text10b); return `${dec.decode(r.out).trim()} matches — native wasm grep (regex crate)`; }),
