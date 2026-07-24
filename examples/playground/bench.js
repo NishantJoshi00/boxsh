@@ -29,21 +29,31 @@ async function bench() {
 
   say("compiling module…");
   const t0 = performance.now();
-  const resp = await fetch("./coreutils-demo/target/wasm32-wasip1/release/coreutils-demo.wasm");
+  const resp = await fetch("./coreutils-demo/target/wasm32-wasip1/release/coreutils-demo.wasm", { cache: "no-store" });
   const buf = await resp.arrayBuffer();
+  const hotBuf = await (await fetch("./hot-demo/target/wasm32-wasip1/release/hot_demo.wasm", { cache: "no-store" })).arrayBuffer();
   const t1 = performance.now();
-  rt = createRuntime(await WebAssembly.compile(buf));
+  rt = createRuntime(await WebAssembly.compile(buf), await WebAssembly.compile(hotBuf));
   const t2 = performance.now();
-  row("module compile", `${fmt(t2 - t1)} ms`, `${(buf.byteLength / 1048576).toFixed(1)} MB module, fetch ${fmt(t1 - t0)} ms`);
+  row("module compile", `${fmt(t2 - t1)} ms`, `${(buf.byteLength / 1048576).toFixed(1)} MB cold + ${(hotBuf.byteLength / 1024).toFixed(0)} KB hot, fetch ${fmt(t1 - t0)} ms`);
   await tick();
 
   say("spawn overhead…");
-  for (let i = 0; i < 10; i++) run(["true"]);
+  for (let i = 0; i < 10; i++) rt.runCold(["true"]);
   let t = performance.now();
   const SPAWNS = 200;
-  for (let i = 0; i < SPAWNS; i++) run(["true"]);
+  for (let i = 0; i < SPAWNS; i++) rt.runCold(["true"]);
   let dt = performance.now() - t;
-  row("command spawn (`true`)", `${fmt(dt / SPAWNS)} ms/cmd`, `${fmt(1000 / (dt / SPAWNS))} commands/s — instantiate + run + exit`);
+  row("cold spawn (`true`)", `${fmt(dt / SPAWNS)} ms/cmd`, `${fmt(1000 / (dt / SPAWNS))} commands/s — fresh instance per command`);
+  await tick();
+
+  say("warm call overhead…");
+  for (let i = 0; i < 10; i++) run(["true"]);
+  t = performance.now();
+  const CALLS = 1000;
+  for (let i = 0; i < CALLS; i++) run(["true"]);
+  dt = performance.now() - t;
+  row("warm call (`true`)", `${(dt / CALLS * 1000).toFixed(1)} µs/cmd`, `${fmt(1000 / (dt / CALLS))} commands/s — one instance, command = function call (M3 model)`);
   await tick();
 
   const MB = 10;
@@ -95,14 +105,14 @@ async function bench() {
   t = performance.now();
   for (let i = 0; i < FILES; i++) run(["tee", `/bench/f${i}`], body);
   dt = performance.now() - t;
-  row(`file write via tee (${FILES}×1KB)`, `${fmt(FILES / (dt / 1000))} files/s`, `${fmt(dt / FILES)} ms/file incl. spawn`);
+  row(`file write via tee (${FILES}×1KB)`, `${fmt(FILES / (dt / 1000))} files/s`, `${fmt(dt / FILES)} ms/file`);
   await tick();
 
   say("file reads…");
   t = performance.now();
   for (let i = 0; i < FILES; i++) run(["cat", `/bench/f${i}`]);
   dt = performance.now() - t;
-  row(`file read via cat (${FILES}×1KB)`, `${fmt(FILES / (dt / 1000))} files/s`, `${fmt(dt / FILES)} ms/file incl. spawn`);
+  row(`file read via cat (${FILES}×1KB)`, `${fmt(FILES / (dt / 1000))} files/s`, `${fmt(dt / FILES)} ms/file`);
   await tick();
 
   say("big directory…");

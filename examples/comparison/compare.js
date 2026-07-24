@@ -52,8 +52,9 @@ async function main() {
 
   // ---- load all three tools ----
   say("loading nobox wasm…");
-  const buf = await (await fetch("../playground/coreutils-demo/target/wasm32-wasip1/release/coreutils-demo.wasm")).arrayBuffer();
-  const nb = createRuntime(await WebAssembly.compile(buf));
+  const buf = await (await fetch("../playground/coreutils-demo/target/wasm32-wasip1/release/coreutils-demo.wasm", { cache: "no-store" })).arrayBuffer();
+  const hotBuf = await (await fetch("../playground/hot-demo/target/wasm32-wasip1/release/hot_demo.wasm", { cache: "no-store" })).arrayBuffer();
+  const nb = createRuntime(await WebAssembly.compile(buf), await WebAssembly.compile(hotBuf));
 
   say("loading just-bash from esm.sh…");
   let jb = null, jbErr = "";
@@ -100,7 +101,7 @@ async function main() {
   for (let i = 0; i < 5; i++) nb.run(["true"]);
   if (jb) await jb.exec("true");
   renderRow("run `true` ×100 (exec overhead)", [
-    await timed(() => { for (let i = 0; i < 100; i++) nb.run(["true"]); return "wasm instance per command"; }),
+    await timed(() => { for (let i = 0; i < 100; i++) nb.run(["true"]); return "warm instance, command = function call (M3 model)"; }),
     await jbCell(async () => { for (let i = 0; i < 100; i++) await jb.exec("true"); return "interpreter exec() per command"; }),
     { na: NA_SHELL },
   ]);
@@ -112,7 +113,7 @@ async function main() {
   nb.run(["mkdir", "/b"]);
   if (jb) await jb.exec("mkdir -p /b");
   renderRow(`write ${N}×1KB files (one command per file)`, [
-    await timed(() => { for (let i = 0; i < N; i++) nb.run(["tee", `/b/f${i}`], kbB); return "tee, incl. spawn"; }),
+    await timed(() => { for (let i = 0; i < N; i++) nb.run(["tee", `/b/f${i}`], kbB); return "tee, warm call each"; }),
     await jbCell(async () => { for (let i = 0; i < N; i++) await jb.exec(`tee /b/f${i}`, { stdin: kb }); return "tee, incl. exec"; }),
     await zfsCell(() => { zfs.mkdirSync("/b", { recursive: true }); for (let i = 0; i < N; i++) zfs.writeFileSync(`/b/f${i}`, kbB); return "writeFileSync (library call)"; }),
   ]);
@@ -124,7 +125,7 @@ async function main() {
   if (zfs) { try { zfs.mkdirSync("/bulk", { recursive: true }); } catch {} }
   const bulkNames = Array.from({ length: N }, (_, i) => `/bulk/g${i}`);
   renderRow(`write ${N}×1KB files (ONE tee command)`, [
-    await timed(() => { nb.run(["tee", ...bulkNames], kbB); return "one spawn, N files — isolates the spawn tax"; }),
+    await timed(() => { nb.run(["tee", ...bulkNames], kbB); return "one call, N files"; }),
     await jbCell(async () => { await jb.exec(`tee ${bulkNames.join(" ")}`, { stdin: kb }); return "one exec, N files"; }),
     await zfsCell(() => { for (const n of bulkNames) zfs.writeFileSync(n, kbB); return "writeFileSync loop"; }),
   ]);
@@ -133,7 +134,7 @@ async function main() {
   // ---- file reads ----
   say("file reads…");
   renderRow(`read ${N}×1KB files`, [
-    await timed(() => { for (let i = 0; i < N; i++) nb.run(["cat", `/b/f${i}`]); return "cat, incl. spawn"; }),
+    await timed(() => { for (let i = 0; i < N; i++) nb.run(["cat", `/b/f${i}`]); return "cat, warm call each"; }),
     await jbCell(async () => { for (let i = 0; i < N; i++) await jb.exec(`cat /b/f${i}`); return "cat, incl. exec"; }),
     await zfsCell(() => { for (let i = 0; i < N; i++) zfs.readFileSync(`/b/f${i}`); return "readFileSync"; }),
   ]);
@@ -314,7 +315,7 @@ async function main() {
     await timed(() => {
       const words = dec.decode(nb.run(["seq", "1", "500"]).out).trim().split("\n");
       for (const w of words) nb.run(["true"]);
-      return "real spawn per iteration (builtin `true` lands M3)";
+      return "real command call per iteration, warm instance";
     }),
     await jbCell(async () => { await jb.exec("for i in $(seq 1 500); do true; done"); return "interpreter builtin"; }),
     { na: NA_SHELL },
