@@ -459,7 +459,7 @@ const BUILTINS = {
   help: () => ({
     out:
       "nobox playground — ported GNU coreutils (via uutils) on a virtual filesystem, in your tab.\n" +
-      "shell features: pipes |   redirects > >> <   chaining && || ;   quotes   $VARS   cd/export\n" +
+      "shell features: pipes |   redirects > >> <   heredocs <<EOF   chaining && || ;   quotes   $VARS   cd/export\n" +
       "commands: " + [...KNOWN].sort().join(" ") + "\n" +
       "builtins: " + Object.keys(BUILTINS).sort().join(" ") + "\n" +
       "not yet: bash scripting (M3), grep/sed/find (M4, native), persistence across refresh (M2, OPFS)\n",
@@ -468,7 +468,7 @@ const BUILTINS = {
   clear: () => (screen.textContent = "", { code: 0 }),
 };
 
-function execLine(line) {
+function execLine(line, heredocBody = null) {
   let chains;
   try {
     chains = parse(tokenize(line));
@@ -481,7 +481,15 @@ function execLine(line) {
   for (const { pipeline, joiner } of chains) {
     if (skip === "&&" && lastStatus !== 0) { skip = joiner; continue; }
     if (skip === "||" && lastStatus === 0) { skip = joiner; continue; }
-    let data = new Uint8Array(0);
+    // Demo simplification: the heredoc body is offered as stdin to the first
+    // stage of every chain on the line (real bash binds it to the command
+    // carrying <<; only stdin-readers consume it, so this is invisible in
+    // practice — `export X=1 && cat <<EOF` works). Expansion happens here,
+    // per chain, so earlier chains' exports are visible (bash expands at
+    // redirection time, not collection time).
+    let data = heredocBody
+      ? enc.encode(heredocBody.quoted ? heredocBody.raw : expand(heredocBody.raw))
+      : new Uint8Array(0);
     for (let s = 0; s < pipeline.length; s++) {
       const st = pipeline[s];
       const name = st.argv[0];
@@ -520,6 +528,9 @@ const input = document.getElementById("input");
 const promptEl = document.getElementById("prompt");
 const history = [];
 let histAt = 0;
+// pending heredoc: command line held until the terminator line arrives
+let heredoc = null; // { line, tag, quoted, body: [] }
+const HEREDOC_RE = /<<-?\s*(?:'([A-Za-z_]\w*)'|"([A-Za-z_]\w*)"|([A-Za-z_]\w*))/;
 
 const prettyCwd = () => {
   const abs = "/" + cwd;
@@ -542,18 +553,41 @@ const printHtml = (html) => {
   screen.appendChild(span);
 };
 
-function refreshPrompt() { promptEl.innerHTML = promptHtml(); }
+function refreshPrompt() { promptEl.innerHTML = heredoc ? "&gt; " : promptHtml(); }
 
 input.addEventListener("keydown", (ev) => {
   if (ev.key === "Enter") {
     const line = input.value;
     input.value = "";
+    if (heredoc) {
+      print("> " + line + "\n");
+      if (line === heredoc.tag) {
+        const body = { raw: heredoc.body.map((l) => l + "\n").join(""), quoted: heredoc.quoted };
+        const cmd = heredoc.line;
+        heredoc = null;
+        try { execLine(cmd, body); } catch (e) { printErr(`nobox: internal error: ${e}\n`); }
+      } else {
+        heredoc.body.push(line);
+      }
+      refreshPrompt();
+      return;
+    }
     printHtml(promptHtml());
     print(line + "\n");
     if (line.trim()) {
       history.push(line);
       histAt = history.length;
-      try { execLine(line); } catch (e) { printErr(`nobox: internal error: ${e}\n`); }
+      const m = HEREDOC_RE.exec(line);
+      if (m) {
+        heredoc = {
+          line: line.replace(m[0], ""),
+          tag: m[1] ?? m[2] ?? m[3],
+          quoted: Boolean(m[1] ?? m[2]),
+          body: [],
+        };
+      } else {
+        try { execLine(line); } catch (e) { printErr(`nobox: internal error: ${e}\n`); }
+      }
     }
     refreshPrompt();
   } else if (ev.key === "ArrowUp") {
@@ -563,9 +597,11 @@ input.addEventListener("keydown", (ev) => {
     input.value = histAt < history.length - 1 ? history[++histAt] : ((histAt = history.length), "");
     ev.preventDefault();
   } else if (ev.key === "c" && ev.ctrlKey) {
-    printHtml(promptHtml());
+    printHtml(heredoc ? "&gt; " : promptHtml());
     print(input.value + "^C\n");
     input.value = "";
+    heredoc = null;
+    refreshPrompt();
   } else if (ev.key === "l" && ev.ctrlKey) {
     screen.textContent = "";
     ev.preventDefault();
