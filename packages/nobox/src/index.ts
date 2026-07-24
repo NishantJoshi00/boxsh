@@ -1,3 +1,5 @@
+export * from "./api.js";
+
 /**
  * The hand-written nobox loader (invariant #9 / D11).
  *

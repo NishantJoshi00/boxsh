@@ -125,6 +125,20 @@ Sweep of all 109 uutils crates (v0.9.0) on wasm32-wasip1:
   tier-1 subset; `full-coreutils` feature = all 73, documented as exceeding
   the default budget. The 3MB gate applies to default features (per plan).
 
+**D17. (2026-07-24, supersedes the block-layer plan) Per-backend native
+storage; no universal block format.** User decision: every backend stores
+data its own most-efficient way — OPFS maps our files onto real OPFS files
+(in-place writes via sync access handles), IndexedDB one record per file
+(transactions give atomicity), Postgres a table (ditto). The pluggable
+interface moves up from blocks to file operations (read/write/list/rename/
+delete/stat). Consequences: M1's superblock/inode/A-B-commit work is cut;
+crash consistency is per-backend (native transactions where available);
+the current bash + coreutils set is accepted as the shell ("good/high
+quality bash" baseline, grown by demand). Product priorities, in order:
+(1) OPFS, IndexedDB, Postgres (non-wasm host) backends, (2) more commands,
+(3) public TS API. Guiding metrics: ease of use, realness, performance —
+anything serving none of the three is cut.
+
 **D16. wasi-libc path-resolution facts (measured 2026-07-24, playground).**
 Load-bearing for the real syscall layer (M1/M2):
 - wasi-libc normalizes preopen names such that `/` and `.` both collapse —

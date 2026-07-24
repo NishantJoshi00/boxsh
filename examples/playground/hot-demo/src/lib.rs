@@ -45,6 +45,20 @@ pub unsafe extern "C" fn hot_free(ptr: *mut u8, len: usize) {
     }
 }
 
+/// Set the reactor's working directory (wasi-libc emulated cwd persists
+/// across hot_run calls; the host calls this when the session's cwd moves).
+#[unsafe(no_mangle)]
+pub extern "C" fn hot_chdir(ptr: *const u8, len: usize) -> i32 {
+    let raw = unsafe { std::slice::from_raw_parts(ptr, len) };
+    match std::str::from_utf8(raw) {
+        Ok(p) => match std::env::set_current_dir(p) {
+            Ok(()) => 0,
+            Err(_) => 1,
+        },
+        Err(_) => 1,
+    }
+}
+
 /// argv as NUL-separated bytes. Returns the exit code.
 #[unsafe(no_mangle)]
 pub extern "C" fn hot_run(ptr: *const u8, len: usize) -> i32 {

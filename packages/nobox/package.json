@@ -9,7 +9,7 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc",
-    "test": "node test/smoke.mjs"
+    "test": "node test/smoke.mjs && node test/api.mjs"
   },
   "devDependencies": {
     "typescript": "^5.6.0"
