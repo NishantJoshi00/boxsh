@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>nobox bench</title>
+  <style>
+    :root { --bg:#0d1117; --fg:#c9d1d9; --dim:#8b949e; --green:#3fb950; --blue:#58a6ff; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100vh; background: var(--bg); color: var(--fg);
+      font: 14px/1.5 "SF Mono", ui-monospace, Menlo, Consolas, monospace; padding: 24px;
+    }
+    h1 { font-size: 16px; color: var(--green); }
+    button {
+      background: transparent; color: var(--blue); border: 1px solid var(--blue);
+      font: inherit; padding: 4px 14px; cursor: pointer; border-radius: 4px;
+    }
+    button:disabled { opacity: 0.4; cursor: default; }
+    #status { color: var(--dim); margin: 12px 0; }
+    table { border-collapse: collapse; margin-top: 8px; width: 100%; max-width: 760px; }
+    th, td { text-align: left; padding: 5px 14px 5px 0; border-bottom: 1px solid #21262d; }
+    th { color: var(--dim); font-weight: 600; }
+    td.num { color: var(--green); }
+    .note { color: var(--dim); max-width: 760px; margin-top: 18px; }
+  </style>
+</head>
+<body>
+  <h1>nobox bench — ported coreutils on the in-page store</h1>
+  <button id="run">run</button>
+  <div id="status">idle</div>
+  <table>
+    <thead><tr><th>benchmark</th><th>result</th><th>detail</th></tr></thead>
+    <tbody id="rows"></tbody>
+  </table>
+  <p class="note">
+    Baseline numbers against the demo JS-Map store. When the real block VFS
+    (M1) and OPFS backend (M2) land, this page reruns unchanged — the deltas
+    are the story. Numbers vary by machine and browser; run twice, trust the
+    second (JIT warmup).
+  </p>
+  <script type="module" src="./bench.js"></script>
+</body>
+</html>
