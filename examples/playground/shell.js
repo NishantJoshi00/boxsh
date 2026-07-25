@@ -43,14 +43,14 @@ const childrenOf = (dir) =>
 // ---------- boot filesystem ----------
 mkdir("");
 for (const d of ["root", "tmp", "etc", "usr", "usr/bin"]) mkdir(d);
-writeFile("etc/motd", "Welcome to nobox — a filesystem pretending hard enough to be a computer.\n");
+writeFile("etc/motd", "Welcome to the nobox browser playground.\n");
 writeFile("etc/os-release",
-  'NAME="nobox"\nVERSION="0.0.1 (fake sandbox)"\nID=nobox\nPRETTY_NAME="nobox 0.0.1 (wasm32)"\nHOME_URL="about:blank"\n');
+  'NAME="nobox"\nVERSION="0.0.1"\nID=nobox\nPRETTY_NAME="nobox 0.0.1"\nHOME_URL="about:blank"\n');
 writeFile("etc/hostname", "nobox\n");
 writeFile("etc/passwd",
   "root:x:0:0:root:/root:/bin/bash\nagent:x:1000:1000:agent:/root:/bin/bash\n");
 writeFile("root/README",
-  "This machine is a browser tab.\nEverything you do here lives in a Map<string, Uint8Array>.\nRefresh the page and it is gone (persistence is milestone M2 — OPFS).\n");
+  "This playground runs in your browser.\nFiles last until the page is refreshed.\n");
 
 let cwd = "root";
 let lastStatus = 0;
@@ -316,10 +316,7 @@ function runWasm(argv, stdinBytes) {
   const imports = new Proxy(impl, {
     get: (t, name) =>
       t[name] ??
-      ((...a) => {
-        console.warn(`nobox: unimplemented syscall ${String(name)}`);
-        return E.NOSYS;
-      }),
+      (() => E.NOSYS),
   });
 
   const inst = new WebAssembly.Instance(wasmModule, { wasi_snapshot_preview1: imports });
@@ -329,7 +326,7 @@ function runWasm(argv, stdinBytes) {
     inst.exports._start();
   } catch (e) {
     if (e instanceof ProcExit) code = e.code;
-    else { stderr.push(enc.encode(`nobox: ${argv[0]}: crashed: ${e}\n`)); code = 139; }
+    else { stderr.push(enc.encode(`nobox: ${argv[0]}: command failed unexpectedly\n`)); code = 139; }
   }
   return { out: concat(stdout), err: concat(stderr), code };
 }
@@ -459,11 +456,11 @@ const BUILTINS = {
   exit: () => ({ out: "logout\n(this is a browser tab — there is no escape)\n", code: 0 }),
   help: () => ({
     out:
-      "nobox playground — ported GNU coreutils (via uutils) on a virtual filesystem, in your tab.\n" +
+      "nobox playground — shell commands on a virtual filesystem in your browser.\n" +
       "shell features: pipes |   redirects > >> <   heredocs <<EOF   $(cmd)   for..in..done   && || ;   quotes   $VARS   cd/export\n" +
       "commands: " + [...KNOWN].sort().join(" ") + "\n" +
       "builtins: " + Object.keys(BUILTINS).sort().join(" ") + "\n" +
-      "not yet: full bash (M3), sed/find/awk (M4), persistence across refresh (M2, OPFS)\n",
+      "unavailable: full Bash, sed, find, awk, and persistence across refresh\n",
     code: 0,
   }),
   clear: () => (screen.textContent = "", { code: 0 }),
@@ -620,7 +617,7 @@ input.addEventListener("keydown", (ev) => {
         const body = { raw: heredoc.body.map((l) => l + "\n").join(""), quoted: heredoc.quoted };
         const cmd = heredoc.line;
         heredoc = null;
-        try { execLine(cmd, body); } catch (e) { printErr(`nobox: internal error: ${e}\n`); }
+        try { execLine(cmd, body); } catch { printErr("nobox: command failed unexpectedly\n"); }
       } else {
         heredoc.body.push(line);
       }
@@ -641,7 +638,7 @@ input.addEventListener("keydown", (ev) => {
           body: [],
         };
       } else {
-        try { execLine(line); } catch (e) { printErr(`nobox: internal error: ${e}\n`); }
+        try { execLine(line); } catch { printErr("nobox: command failed unexpectedly\n"); }
       }
     }
     refreshPrompt();
@@ -670,7 +667,7 @@ document.body.addEventListener("click", () => input.focus());
   try {
     const url = "./coreutils-demo/target/wasm32-wasip1/release/coreutils-demo.wasm";
     const resp = await fetch(url);
-    if (!resp.ok) throw new Error(`${resp.status} fetching ${url} — build it first (see README.md)`);
+    if (!resp.ok) throw new Error(`playground commands are unavailable (HTTP ${resp.status})`);
     try {
       wasmModule = await WebAssembly.compileStreaming(resp.clone());
     } catch {
@@ -679,7 +676,7 @@ document.body.addEventListener("click", () => input.focus());
     print(" ... ok\n\n", "dim");
     print(dec.decode(store.get("etc/motd").data));
     print(`Last login: ${new Date().toUTCString()} from the same tab\n`, "dim");
-    print("type `help` if the illusion breaks\n\n", "dim");
+    print("type `help` for available commands and shell features\n\n", "dim");
   } catch (e) {
     printErr(`\nboot failed: ${e.message}\n`);
   }

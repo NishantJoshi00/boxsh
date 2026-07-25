@@ -8,8 +8,8 @@ import { Filesystem, Sandbox, memory, loadEngine, NoboxError } from "../dist/ind
 
 const p = (rel) => fileURLToPath(new URL(rel, import.meta.url));
 const engine = await loadEngine({
-  cold: readFileSync(p("../../../examples/playground/coreutils-demo/target/wasm32-wasip1/release/coreutils-demo.wasm")),
-  hot: readFileSync(p("../../../examples/playground/hot-demo/target/wasm32-wasip1/release/hot_demo.wasm")),
+  commands: readFileSync(p("../../../examples/playground/coreutils-demo/target/wasm32-wasip1/release/coreutils-demo.wasm")),
+  optimizedCommands: readFileSync(p("../../../examples/playground/hot-demo/target/wasm32-wasip1/release/hot_demo.wasm")),
 });
 
 // --- Filesystem basics ---

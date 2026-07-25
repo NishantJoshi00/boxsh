@@ -27,7 +27,7 @@ async function bench() {
   document.getElementById("run").disabled = true;
   rows.innerHTML = "";
 
-  say("compiling module…");
+  say("starting benchmark…");
   const t0 = performance.now();
   const resp = await fetch("./coreutils-demo/target/wasm32-wasip1/release/coreutils-demo.wasm", { cache: "no-store" });
   const buf = await resp.arrayBuffer();
@@ -35,25 +35,29 @@ async function bench() {
   const t1 = performance.now();
   rt = createRuntime(await WebAssembly.compile(buf), await WebAssembly.compile(hotBuf));
   const t2 = performance.now();
-  row("module compile", `${fmt(t2 - t1)} ms`, `${(buf.byteLength / 1048576).toFixed(1)} MB cold + ${(hotBuf.byteLength / 1024).toFixed(0)} KB hot, fetch ${fmt(t1 - t0)} ms`);
+  row(
+    "startup",
+    `${fmt(t2 - t1)} ms`,
+    `${((buf.byteLength + hotBuf.byteLength) / 1048576).toFixed(1)} MB downloaded in ${fmt(t1 - t0)} ms`,
+  );
   await tick();
 
-  say("spawn overhead…");
+  say("standard command startup…");
   for (let i = 0; i < 10; i++) rt.runCold(["true"]);
   let t = performance.now();
   const SPAWNS = 200;
   for (let i = 0; i < SPAWNS; i++) rt.runCold(["true"]);
   let dt = performance.now() - t;
-  row("cold spawn (`true`)", `${fmt(dt / SPAWNS)} ms/cmd`, `${fmt(1000 / (dt / SPAWNS))} commands/s — fresh instance per command`);
+  row("standard `true` command", `${fmt(dt / SPAWNS)} ms/cmd`, `${fmt(1000 / (dt / SPAWNS))} commands/s`);
   await tick();
 
-  say("warm call overhead…");
+  say("optimized command startup…");
   for (let i = 0; i < 10; i++) run(["true"]);
   t = performance.now();
   const CALLS = 1000;
   for (let i = 0; i < CALLS; i++) run(["true"]);
   dt = performance.now() - t;
-  row("warm call (`true`)", `${(dt / CALLS * 1000).toFixed(1)} µs/cmd`, `${fmt(1000 / (dt / CALLS))} commands/s — one instance, command = function call (M3 model)`);
+  row("optimized `true` command", `${(dt / CALLS * 1000).toFixed(1)} µs/cmd`, `${fmt(1000 / (dt / CALLS))} commands/s`);
   await tick();
 
   const MB = 10;
@@ -70,7 +74,7 @@ async function bench() {
   t = performance.now();
   run(["tr", "a-z", "A-Z"], text);
   dt = performance.now() - t;
-  row(`tr a-z A-Z (${MB}MB)`, `${fmt(MB / (dt / 1000))} MB/s`, `${fmt(dt)} ms, output re-buffered to JS`);
+  row(`tr a-z A-Z (${MB}MB)`, `${fmt(MB / (dt / 1000))} MB/s`, `${fmt(dt)} ms, ${MB}MB output`);
   await tick();
 
   say(`sha256sum on ${MB}MB…`);
@@ -95,7 +99,7 @@ async function bench() {
   const seqOut = run(["seq", "1", "200000"]);
   const tailOut = run(["tail", "-5"], seqOut.out);
   dt = performance.now() - t;
-  row("seq 1 200000 | tail -5", `${fmt(dt)} ms`, `buffered 2-stage pipeline (fusion lands M4); ends ${dec.decode(tailOut.out).trim().split("\n").pop()}`);
+  row("seq 1 200000 | tail -5", `${fmt(dt)} ms`, `ends ${dec.decode(tailOut.out).trim().split("\n").pop()}`);
   await tick();
 
   say("file writes…");

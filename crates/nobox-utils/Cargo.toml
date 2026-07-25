@@ -1,6 +1,6 @@
 [package]
 name = "nobox-utils"
-description = "nobox commands: native streaming commands, ported uutils, and bash (parser + evaluator). Each command behind a cargo feature."
+description = "Command support for nobox."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

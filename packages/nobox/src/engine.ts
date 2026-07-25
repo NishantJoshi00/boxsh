@@ -1,9 +1,4 @@
-/**
- * The execution engine: a WASI preview1 syscall layer over a StorageBackend,
- * running commands at two temperatures — cold (fresh instance of the
- * coreutils multicall per command) and hot (a reactor instantiated once,
- * commands as function calls). Same syscalls, same store, either way.
- */
+/** Run supported commands against a storage backend. */
 import type { StorageBackend } from "./backend.js";
 import { normalize } from "./backend.js";
 import { NoboxError } from "./errors.js";
@@ -30,13 +25,13 @@ export interface EngineModules {
   hot?: WebAssembly.Module;
 }
 
-/** Commands implemented natively in the warm reactor module. */
-export const HOT_COMMANDS = new Set([
+/** Commands available through the optional optimized command module. */
+const HOT_COMMANDS = new Set([
   "true", "false", "echo", "cat", "tee", "wc", "seq", "head", "sort", "grep",
 ]);
 
-/** Commands available in the cold coreutils multicall. */
-export const COLD_COMMANDS = new Set((
+/** Commands available through the core command module. */
+const COLD_COMMANDS = new Set((
   "arch b2sum base32 base64 basename basenc cat cksum comm cp csplit cut date dd dir dircolors dirname echo " +
   "expand factor false fmt fold grep head join link ln ls md5sum mkdir mktemp mv nl nproc numfmt od paste " +
   "pathchk pr printenv printf ptx pwd readlink realpath rm rmdir seq sha1sum sha224sum sha256sum sha384sum " +

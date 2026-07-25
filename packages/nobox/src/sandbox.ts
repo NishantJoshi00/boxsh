@@ -1,9 +1,15 @@
-/** The session half of the API: what you hand to an agent. */
+/** Run shell scripts against a virtual filesystem. */
 import { createEngine, type Engine, type EngineModules } from "./engine.js";
 import type { Filesystem } from "./filesystem.js";
 import { createShell, type ShellSession } from "./shell.js";
 
 const dec = new TextDecoder();
+declare const engineBrand: unique symbol;
+
+/** Command modules ready to use with a Sandbox. */
+export interface NoboxEngine {
+  readonly [engineBrand]: true;
+}
 
 export interface ExecOutput {
   stdout: string;
@@ -15,23 +21,23 @@ export interface ExecOutput {
 
 export interface SandboxOptions {
   fs: Filesystem;
-  engine: EngineModules;
+  engine: NoboxEngine;
   env?: Record<string, string>;
   cwd?: string;
 }
 
-/** Compile the engine's wasm modules from URLs (browser) or buffers. */
+/** Load command modules from URLs or buffers. */
 export async function loadEngine(source: {
-  cold: string | BufferSource | WebAssembly.Module;
-  hot?: string | BufferSource | WebAssembly.Module;
-}): Promise<EngineModules> {
+  commands: string | BufferSource | WebAssembly.Module;
+  optimizedCommands?: string | BufferSource | WebAssembly.Module;
+}): Promise<NoboxEngine> {
   const compile = async (
     s: string | BufferSource | WebAssembly.Module,
   ): Promise<WebAssembly.Module> => {
     if (s instanceof WebAssembly.Module) return s;
     if (typeof s === "string") {
       const resp = await fetch(s);
-      if (!resp.ok) throw new Error(`failed to fetch engine module: ${s} (${resp.status})`);
+      if (!resp.ok) throw new Error(`Unable to load nobox commands from ${s} (HTTP ${resp.status}).`);
       try {
         return await WebAssembly.compileStreaming(resp.clone());
       } catch {
@@ -41,9 +47,12 @@ export async function loadEngine(source: {
     return WebAssembly.compile(s);
   };
   return {
-    cold: await compile(source.cold),
-    hot: source.hot !== undefined ? await compile(source.hot) : undefined,
-  };
+    cold: await compile(source.commands),
+    hot:
+      source.optimizedCommands !== undefined
+        ? await compile(source.optimizedCommands)
+        : undefined,
+  } as unknown as NoboxEngine;
 }
 
 export class Sandbox {
@@ -63,7 +72,7 @@ export class Sandbox {
       LANG: "C.UTF-8",
     };
     this.session = { env: this.env, cwd: options.cwd ?? "/", lastStatus: 0 };
-    this.engine = createEngine(options.engine, options.fs.backendRef, {
+    this.engine = createEngine(options.engine as unknown as EngineModules, options.fs.backendRef, {
       env: this.env,
       cwd: () => this.session.cwd,
     });

@@ -1,19 +1,12 @@
-//! The block layer: the only seam between the filesystem and its backends.
-//!
-//! Backends see numbered fixed-size blocks and nothing else — they do not
-//! know files exist. Invariant #2: this trait stays at four methods; every
-//! proposed fifth method needs a written justification in a PR.
+//! Fixed-size block storage.
 
 use crate::{Error, Result};
 
-/// Fixed block size for the on-disk format (invariant #2).
+/// Size of each block in bytes.
 pub const BLOCK_SIZE: usize = 4096;
 
 /// A backend: an addressable array of 4 KiB blocks.
 ///
-/// Semantics, not wire granularity — implementations are free to batch,
-/// coalesce, or segment internally (D12), as long as `flush` returning `Ok`
-/// means every prior write is durable.
 pub trait BlockStore {
     /// Read block `index` into `buf`.
     fn read_block(&mut self, index: u64, buf: &mut [u8; BLOCK_SIZE]) -> Result<()>;
@@ -25,7 +18,7 @@ pub trait BlockStore {
     fn flush(&mut self) -> Result<()>;
 }
 
-/// The in-Rust memory backend (V0 backend #1; always the fallback).
+/// An in-memory block store.
 pub struct MemoryStore {
     blocks: Vec<Box<[u8; BLOCK_SIZE]>>,
 }

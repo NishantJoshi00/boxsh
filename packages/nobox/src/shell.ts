@@ -1,9 +1,4 @@
-/**
- * The demo-grade shell: pipes, redirects, && || ;, quotes, $VARS, $(cmd),
- * single-line for-loops, heredocs. Executes commands through the Engine.
- * (The full bash interpreter replaces this parser; the execution model
- * underneath stays.)
- */
+// Shell parsing and execution.
 import type { StorageBackend } from "./backend.js";
 import { normalize } from "./backend.js";
 import type { Engine } from "./engine.js";

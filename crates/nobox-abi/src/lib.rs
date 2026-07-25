@@ -1,21 +1,15 @@
-//! nobox-abi: the one boundary crate (invariant #9).
-//!
-//! Everything exported here is C-ABI shaped: opaque handles, `(ptr, len)`
-//! byte buffers, integer error codes. No wasm-bindgen, no closures, no host
-//! magic. WASM is the first host of this surface; the same exports compile
-//! to a cdylib for FFI hosts later (D12).
+//! Functions used to load and exchange data with nobox modules.
 
-/// Bumped on every incompatible change to the exported surface.
-/// The on-disk format is versioned separately in the superblock.
+/// Version of the exported functions.
 pub const ABI_VERSION: u32 = 1;
 
+/// Return the version of the exported functions.
 #[unsafe(no_mangle)]
 pub extern "C" fn nobox_abi_version() -> u32 {
     ABI_VERSION
 }
 
-/// Allocate `len` bytes inside linear memory and return the pointer.
-/// The host uses this to place inputs (paths, file contents) before a call.
+/// Allocate `len` bytes and return a pointer to them.
 #[unsafe(no_mangle)]
 pub extern "C" fn nobox_alloc(len: usize) -> *mut u8 {
     let mut buf = Vec::<u8>::with_capacity(len);

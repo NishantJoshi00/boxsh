@@ -4,7 +4,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import assert from "node:assert/strict";
-import { load, SUPPORTED_ABI_VERSION } from "../dist/index.js";
+import { load, SUPPORTED_ABI_VERSION } from "../dist/loader.js";
 
 const wasmPath = fileURLToPath(
   new URL("../../../target/wasm32-wasip1/release/nobox_abi.wasm", import.meta.url),

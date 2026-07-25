@@ -1,6 +1,6 @@
 [package]
 name = "nobox-core"
-description = "nobox virtual filesystem: block store, VFS, page cache. Pure, synchronous, zero dependencies."
+description = "Storage primitives for nobox."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

@@ -1,4 +1,4 @@
-/** The data half of the API: files, folders, ingress/egress, backends. */
+/** Manage files and directories in a configured storage backend. */
 import type { BackendEntry, StorageBackend } from "./backend.js";
 import { normalize } from "./backend.js";
 import { enoent, enotdir } from "./errors.js";
@@ -16,7 +16,7 @@ export interface FilesystemOptions {
 }
 
 export class Filesystem {
-  /** Shared with Sandbox; swapped live by switchBackend. */
+  /** @internal */
   readonly backendRef: { current: StorageBackend };
 
   private constructor(backend: StorageBackend) {

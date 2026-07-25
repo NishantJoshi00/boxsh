@@ -8,7 +8,7 @@ interface Node {
   mtime: number;
 }
 
-/** The in-memory backend: a Map, and nothing else. Always the fallback. */
+/** Create a non-persistent in-memory storage backend. */
 export function memory(): StorageBackend {
   const nodes = new Map<string, Node>([["", { dir: true, mtime: Date.now() }]]);
 

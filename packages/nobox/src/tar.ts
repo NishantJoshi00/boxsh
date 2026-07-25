@@ -1,4 +1,4 @@
-/** Minimal ustar writer/reader — the portable ingress/egress format. */
+// TAR archive encoding and decoding.
 import type { StorageBackend } from "./backend.js";
 
 const enc = new TextEncoder();

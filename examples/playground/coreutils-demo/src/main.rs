@@ -6,7 +6,7 @@ fn main() {
         let _ = std::env::set_current_dir(&pwd);
     }
     let mut args: Vec<OsString> = std::env::args_os().collect();
-    if args.len() < 2 { eprintln!("usage: multicall <cmd> [args...]"); std::process::exit(2); }
+    if args.len() < 2 { eprintln!("a command is required"); std::process::exit(2); }
     let rest = args.split_off(1);
     let cmd = rest[0].to_string_lossy().into_owned();
     let code = match cmd.as_str() {
@@ -84,7 +84,7 @@ fn main() {
         "vdir" => uu_vdir::uumain(rest.into_iter()),
         "wc" => uu_wc::uumain(rest.into_iter()),
         "yes" => uu_yes::uumain(rest.into_iter()),
-        _ => { eprintln!("unknown command: {cmd}"); 127 }
+        _ => { eprintln!("{cmd}: command not found"); 127 }
     };
     std::process::exit(code);
 }

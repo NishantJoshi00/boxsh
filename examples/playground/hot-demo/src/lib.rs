@@ -1,13 +1,4 @@
-//! Warm-instance command module — the M3 execution model, previewed.
-//!
-//! Compiled as a wasip1 *reactor*: `_initialize` runs once, after which
-//! `hot_run(argv)` is a plain function call. No per-command instantiation,
-//! no wasi-libc re-init, no argv-parser startup cost. Commands still reach
-//! the filesystem through the same WASI syscall imports as cold spawns —
-//! one store, two execution temperatures.
-//!
-//! Commands here are nobox-native implementations (byte-safe throughout);
-//! everything not in this set falls back to a cold uutils spawn.
+//! Optimized command implementations for the nobox browser playground.
 
 use std::io::{Read, Write};
 
@@ -45,8 +36,7 @@ pub unsafe extern "C" fn hot_free(ptr: *mut u8, len: usize) {
     }
 }
 
-/// Set the reactor's working directory (wasi-libc emulated cwd persists
-/// across hot_run calls; the host calls this when the session's cwd moves).
+/// Set the working directory used by subsequent commands.
 #[unsafe(no_mangle)]
 pub extern "C" fn hot_chdir(ptr: *const u8, len: usize) -> i32 {
     let raw = unsafe { std::slice::from_raw_parts(ptr, len) };
@@ -83,7 +73,7 @@ pub extern "C" fn hot_run(ptr: *const u8, len: usize) -> i32 {
         "sort" => cmd_sort(&argv[1..]),
         "grep" => cmd_grep(&argv[1..]),
         other => {
-            eprintln!("hot: unknown command: {other}");
+            eprintln!("{other}: command not found");
             127
         }
     };

@@ -26,7 +26,7 @@
   </style>
 </head>
 <body>
-  <h1>nobox bench — ported coreutils on the in-page store</h1>
+  <h1>nobox browser benchmarks</h1>
   <button id="run">run</button>
   <div id="status">idle</div>
   <table>
@@ -34,10 +34,8 @@
     <tbody id="rows"></tbody>
   </table>
   <p class="note">
-    Baseline numbers against the demo JS-Map store. When the real block VFS
-    (M1) and OPFS backend (M2) land, this page reruns unchanged — the deltas
-    are the story. Numbers vary by machine and browser; run twice, trust the
-    second (JIT warmup).
+    Measures command and filesystem performance in this browser. Numbers vary
+    by machine and browser; run twice and use the second result.
   </p>
   <script type="module" src="./bench.js"></script>
 </body>

@@ -51,7 +51,7 @@ async function main() {
   rows.innerHTML = "";
 
   // ---- load all three tools ----
-  say("loading nobox wasm…");
+  say("loading nobox…");
   const buf = await (await fetch("../playground/coreutils-demo/target/wasm32-wasip1/release/coreutils-demo.wasm", { cache: "no-store" })).arrayBuffer();
   const hotBuf = await (await fetch("../playground/hot-demo/target/wasm32-wasip1/release/hot_demo.wasm", { cache: "no-store" })).arrayBuffer();
   const nb = createRuntime(await WebAssembly.compile(buf), await WebAssembly.compile(hotBuf));
@@ -101,8 +101,8 @@ async function main() {
   for (let i = 0; i < 5; i++) nb.run(["true"]);
   if (jb) await jb.exec("true");
   renderRow("run `true` ×100 (exec overhead)", [
-    await timed(() => { for (let i = 0; i < 100; i++) nb.run(["true"]); return "warm instance, command = function call (M3 model)"; }),
-    await jbCell(async () => { for (let i = 0; i < 100; i++) await jb.exec("true"); return "interpreter exec() per command"; }),
+    await timed(() => { for (let i = 0; i < 100; i++) nb.run(["true"]); return "100 command runs"; }),
+    await jbCell(async () => { for (let i = 0; i < 100; i++) await jb.exec("true"); return "100 command runs"; }),
     { na: NA_SHELL },
   ]);
   await tick();
@@ -113,8 +113,8 @@ async function main() {
   nb.run(["mkdir", "/b"]);
   if (jb) await jb.exec("mkdir -p /b");
   renderRow(`write ${N}×1KB files (one command per file)`, [
-    await timed(() => { for (let i = 0; i < N; i++) nb.run(["tee", `/b/f${i}`], kbB); return "tee, warm call each"; }),
-    await jbCell(async () => { for (let i = 0; i < N; i++) await jb.exec(`tee /b/f${i}`, { stdin: kb }); return "tee, incl. exec"; }),
+    await timed(() => { for (let i = 0; i < N; i++) nb.run(["tee", `/b/f${i}`], kbB); return `${N} tee commands`; }),
+    await jbCell(async () => { for (let i = 0; i < N; i++) await jb.exec(`tee /b/f${i}`, { stdin: kb }); return `${N} tee commands`; }),
     await zfsCell(() => { zfs.mkdirSync("/b", { recursive: true }); for (let i = 0; i < N; i++) zfs.writeFileSync(`/b/f${i}`, kbB); return "writeFileSync (library call)"; }),
   ]);
   await tick();
@@ -134,8 +134,8 @@ async function main() {
   // ---- file reads ----
   say("file reads…");
   renderRow(`read ${N}×1KB files`, [
-    await timed(() => { for (let i = 0; i < N; i++) nb.run(["cat", `/b/f${i}`]); return "cat, warm call each"; }),
-    await jbCell(async () => { for (let i = 0; i < N; i++) await jb.exec(`cat /b/f${i}`); return "cat, incl. exec"; }),
+    await timed(() => { for (let i = 0; i < N; i++) nb.run(["cat", `/b/f${i}`]); return `${N} cat commands`; }),
+    await jbCell(async () => { for (let i = 0; i < N; i++) await jb.exec(`cat /b/f${i}`); return `${N} cat commands`; }),
     await zfsCell(() => { for (let i = 0; i < N; i++) zfs.readFileSync(`/b/f${i}`); return "readFileSync"; }),
   ]);
   await tick();
@@ -299,25 +299,25 @@ async function main() {
 
   say("grep…");
   renderRow("grep -c 'fox' on 10MB", [
-    await timed(() => { const r = nb.run(["grep", "-c", "fox"], text10b); return `${dec.decode(r.out).trim()} matches — native wasm grep (regex crate)`; }),
+    await timed(() => { const r = nb.run(["grep", "-c", "fox"], text10b); return `${dec.decode(r.out).trim()} matches`; }),
     await jbCell(async () => { const r = await jb.exec("grep -c fox", { stdin: text10 }); return `${r.stdout.trim()} matches`; }),
     { na: NA_SHELL },
   ]);
   await tick();
 
-  say("pipeline + loop grammar…");
+  say("shell workflows…");
   renderRow("seq 1 200000 | tail -5", [
-    await timed(() => { const s = nb.run(["seq", "1", "200000"]); nb.run(["tail", "-5"], s.out); return "buffered 2-stage (fusion M4)"; }),
-    await jbCell(async () => { await jb.exec("seq 1 200000 | tail -5"); return "native pipeline"; }),
+    await timed(() => { const s = nb.run(["seq", "1", "200000"]); const r = nb.run(["tail", "-5"], s.out); return `ends ${dec.decode(r.out).trim().split("\n").pop()}`; }),
+    await jbCell(async () => { const r = await jb.exec("seq 1 200000 | tail -5"); return `ends ${r.stdout.trim().split("\n").pop()}`; }),
     { na: NA_SHELL },
   ]);
   renderRow("for i in $(seq 1 500); do true; done", [
     await timed(() => {
       const words = dec.decode(nb.run(["seq", "1", "500"]).out).trim().split("\n");
       for (const w of words) nb.run(["true"]);
-      return "real command call per iteration, warm instance";
+      return "500 iterations";
     }),
-    await jbCell(async () => { await jb.exec("for i in $(seq 1 500); do true; done"); return "interpreter builtin"; }),
+    await jbCell(async () => { await jb.exec("for i in $(seq 1 500); do true; done"); return "500 iterations"; }),
     { na: NA_SHELL },
   ]);
 

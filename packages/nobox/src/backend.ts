@@ -1,12 +1,4 @@
-/**
- * The storage seam (decision D17): every backend stores data its own
- * most-efficient way and implements these file-level operations. The engine
- * calls them synchronously (the WASI syscall layer must answer in the same
- * tick); backends whose native I/O is async keep state resident and write
- * behind — their `flush` is where durability happens.
- *
- * Paths at this seam are normalized: no leading slash, `""` is the root.
- */
+/** Storage operations used by a nobox filesystem. Paths have no leading slash; `""` is the root. */
 
 export interface BackendEntry {
   kind: "file" | "dir";
@@ -33,7 +25,7 @@ export interface StorageBackend {
   /** Rename a file or directory (including its subtree). */
   rename(from: string, to: string): void;
 
-  /** Make everything written so far durable (no-op for memory). */
+  /** Make everything written so far durable. */
   flush(): Promise<void>;
   /** Flush and release resources. */
   close(): Promise<void>;

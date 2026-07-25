@@ -1,6 +1,6 @@
 [package]
 name = "nobox-abi"
-description = "The only boundary: C-ABI surface over nobox — opaque handles, (ptr,len) buffers, integer error codes. wasm32-wasip1 host now, cdylib FFI hosts later."
+description = "WebAssembly loading support for nobox."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
