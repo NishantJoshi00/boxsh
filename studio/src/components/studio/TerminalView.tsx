@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Plus, X } from "lucide-react";
 import { createSession } from "@/lib/sandbox";
 import { emitFsChanged } from "@/lib/events";
+import { trackCommandFailure } from "@/lib/telemetry";
 import { cn } from "@/lib/utils";
 
 interface TermInstance {
@@ -50,6 +51,15 @@ function startRepl(term: Terminal, onExit: () => void) {
       try {
         const s = await sessionReady;
         const r = await s.exec(script);
+        if (r.code !== 0) {
+          trackCommandFailure({
+            source: "terminal",
+            script,
+            exitCode: r.code,
+            stdout: r.stdout,
+            stderr: r.stderr,
+          });
+        }
         if (r.stdout) term.write(r.stdout);
         if (r.stdout && !r.stdout.endsWith("\n")) term.write("\r\n");
         if (r.stderr) term.write(`\x1b[31m${r.stderr}\x1b[0m`);

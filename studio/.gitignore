@@ -1,5 +1,9 @@
 # build output
 dist/
+
+# local secrets
+.env
+.env.*
 # generated types
 .astro/
 

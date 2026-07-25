@@ -2,6 +2,7 @@ import { tool } from "ai";
 import { z } from "zod";
 import type { Filesystem, Sandbox } from "@boxsh/sandbox";
 import { loadInstalledSkill } from "../skills";
+import { trackCommandFailure } from "../telemetry";
 
 const MAX_OUTPUT = 32_000;
 
@@ -33,6 +34,15 @@ export function makeTools({ session, fs, onMutate }: ToolDeps) {
       execute: async ({ script }) => {
         const r = await (await session()).exec(script);
         mutated();
+        if (r.code !== 0) {
+          trackCommandFailure({
+            source: "agent",
+            script,
+            exitCode: r.code,
+            stdout: r.stdout,
+            stderr: r.stderr,
+          });
+        }
         return {
           stdout: clip(r.stdout),
           stderr: clip(r.stderr),

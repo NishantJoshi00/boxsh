@@ -1,0 +1,56 @@
+name: deploy-studio
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
+      - run: rustup target add wasm32-wasip1
+      - name: Install binaryen (wasm-opt)
+        run: sudo apt-get update && sudo apt-get install -y binaryen
+      - name: Build boxsh package and engine
+        working-directory: packages/boxsh
+        run: |
+          npm ci
+          npm run build
+          npm run build:engine
+      - name: Build studio
+        working-directory: studio
+        env:
+          ASTRO_BASE: /${{ github.event.repository.name }}
+          PUBLIC_AXIOM_TOKEN: ${{ secrets.AXIOM_TOKEN }}
+          PUBLIC_AXIOM_DATASET: boxsh-studio
+        run: |
+          npm ci
+          npm run build
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: studio/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
