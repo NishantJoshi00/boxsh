@@ -8,15 +8,13 @@ Run shell commands against an isolated virtual filesystem from JavaScript—in
 Node.js or the browser. No host shell and no host filesystem.
 
 > [!IMPORTANT]
-> boxsh is experimental and is not yet published to npm. APIs may change before
-> the first stable release. Do not treat boxsh as a hardened security boundary.
+> boxsh is experimental. APIs may change before the first stable release.
+> Do not treat boxsh as a hardened security boundary.
 
 ## Install
 
-Once the first npm release is available:
-
 ```sh
-npm install boxsh
+npm install @boxsh/sandbox
 ```
 
 boxsh requires Node.js 20 or newer. To contribute or evaluate the current
@@ -25,7 +23,7 @@ source, see the [contribution guide](docs/CONTRIBUTING.md).
 ## Quick start
 
 ```js
-import { Filesystem, Sandbox, loadEngine, memory } from "boxsh";
+import { Filesystem, Sandbox, loadEngine, memory } from "@boxsh/sandbox";
 
 const engine = await loadEngine();
 const filesystem = await Filesystem.create({ backend: memory() });

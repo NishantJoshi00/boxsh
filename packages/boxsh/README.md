@@ -3,13 +3,10 @@
 Run shell commands against an isolated virtual filesystem from JavaScript—in
 Node.js or the browser. No host shell and no host filesystem.
 
-> **Pre-release:** boxsh is experimental and is not yet published to npm. APIs
-> may change before the first stable release. Do not treat boxsh as a hardened
-> security boundary.
+> **Pre-release:** boxsh is experimental. APIs may change before the first
+> stable release. Do not treat boxsh as a hardened security boundary.
 
 ## Install
-
-Once the first npm release is available:
 
 ```sh
 npm install @boxsh/sandbox

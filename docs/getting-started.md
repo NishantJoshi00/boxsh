@@ -4,9 +4,6 @@ boxsh runs shell commands against a virtual filesystem owned by your
 application. It works in Node.js and modern browsers without using the host
 shell or host filesystem.
 
-> **Pre-release:** boxsh is not yet published to npm. The installation command
-> below will work after the first package release.
-
 ## Install
 
 ```sh
