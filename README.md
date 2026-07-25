@@ -1,8 +1,6 @@
-<p align="center">
-  <img src="docs/assets/boxsh-logo.png" alt="boxsh logo" width="200">
-</p>
+<img align="right" src="docs/assets/boxsh-logo.png" alt="boxsh logo" width="240">
 
-<h1 align="center">boxsh</h1>
+# boxsh
 
 Run shell commands against an isolated virtual filesystem from JavaScript—in
 Node.js or the browser. No host shell and no host filesystem.
