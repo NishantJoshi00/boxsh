@@ -7,6 +7,7 @@ import {
 } from "@boxsh/sandbox";
 import commandsUrl from "@boxsh/sandbox/engine/commands.wasm?url";
 import optimizedUrl from "@boxsh/sandbox/engine/commands-optimized.wasm?url";
+import { DATA_ROOT, initializeSkillWorkspace } from "./skills";
 
 /**
  * One shared filesystem per page load; every agent session and terminal gets
@@ -23,12 +24,13 @@ export function initSandbox(): Promise<{ fs: Filesystem; engine: BoxshEngine }> 
         optimizedCommands: new URL(optimizedUrl, window.location.href),
       }),
     ]);
+    await initializeSkillWorkspace(fs);
     return { fs, engine };
   })();
   return ready;
 }
 
-export async function createSession(cwd = "/"): Promise<Sandbox> {
+export async function createSession(cwd = DATA_ROOT): Promise<Sandbox> {
   const { fs, engine } = await initSandbox();
   return new Sandbox({ fs, engine, cwd });
 }

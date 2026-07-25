@@ -32,6 +32,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { sharedFs } from "@/lib/sandbox";
 import { emitFsChanged, onFsChanged } from "@/lib/events";
 import { cn } from "@/lib/utils";
+import { DATA_ROOT } from "@/lib/skills";
 
 const PREVIEW_LIMIT = 512 * 1024;
 /** Above this, skip Shiki and show plain text — highlighting gets slow. */
@@ -196,7 +197,7 @@ function NewFolderButton() {
     const trimmed = name.trim().replace(/^\/+|\/+$/g, "");
     if (!trimmed) return;
     const fs = await sharedFs();
-    await fs.mkdir(`/${trimmed}`, { recursive: true });
+    await fs.mkdir(`${DATA_ROOT}/${trimmed}`, { recursive: true });
     emitFsChanged();
     setName("");
     setOpen(false);
@@ -260,7 +261,7 @@ export function FilesView({ hidden }: { hidden: boolean }) {
     if (!files?.length) return;
     const fs = await sharedFs();
     for (const f of Array.from(files)) {
-      await fs.writeFile(`/${f.name}`, new Uint8Array(await f.arrayBuffer()));
+      await fs.writeFile(`${DATA_ROOT}/${f.name}`, new Uint8Array(await f.arrayBuffer()));
     }
     emitFsChanged();
   };
@@ -334,7 +335,7 @@ export function FilesView({ hidden }: { hidden: boolean }) {
                       </Button>
                     }
                   />
-                  <TooltipContent>Upload files into the sandbox</TooltipContent>
+                  <TooltipContent>Upload files into /data</TooltipContent>
                 </Tooltip>
               </div>
             </div>

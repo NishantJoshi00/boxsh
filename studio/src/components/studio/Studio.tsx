@@ -12,6 +12,8 @@ import { TerminalView } from "./TerminalView";
 import { FilesView } from "./FilesView";
 import { KeysDialog } from "./KeysDialog";
 import { EmptyState } from "./EmptyState";
+import { SkillsDialog } from "./SkillsDialog";
+import { Toaster } from "@/components/ui/sonner";
 
 function FloatingTrigger() {
   const { open, openMobile, isMobile } = useSidebar();
@@ -81,6 +83,8 @@ export default function Studio() {
       <AppSidebar />
       <Workspace />
       <KeysDialog />
+      <SkillsDialog />
+      <Toaster />
     </SidebarProvider>
   );
 }

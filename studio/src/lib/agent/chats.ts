@@ -15,6 +15,7 @@ import { emitFsChanged } from "../events";
 import { useStudio } from "../store";
 import { makeTools, type StudioTools } from "./tools";
 import { prompts } from "./prompts";
+import { appendSkillsPrompt, discoverInstalledSkills } from "../skills";
 
 export type StudioUIMessage = UIMessage<unknown, never, InferUITools<StudioTools>>;
 
@@ -64,11 +65,17 @@ export function chatFor(sessionId: string): Chat<StudioUIMessage> {
       stopWhen: isStepCount(30),
       // Provider, model, and key live in the store and can change between
       // turns (the session's provider dropdown); re-resolve on every call.
-      prepareCall: ({ options: _options, ...rest }) => ({
-        ...rest,
-        model: resolveModel(sessionId),
-        instructions: prompts[sessionProvider(sessionId)],
-      }),
+      prepareCall: async ({ options: _options, ...rest }) => {
+        const skills = await discoverInstalledSkills(await sharedFs());
+        return {
+          ...rest,
+          model: resolveModel(sessionId),
+          instructions: appendSkillsPrompt(
+            prompts[sessionProvider(sessionId)],
+            skills,
+          ),
+        };
+      },
     });
     chat = new Chat<StudioUIMessage>({
       transport: new DirectChatTransport({ agent }),

@@ -1,6 +1,7 @@
 import { tool } from "ai";
 import { z } from "zod";
 import type { Filesystem, Sandbox } from "@boxsh/sandbox";
+import { loadInstalledSkill } from "../skills";
 
 const MAX_OUTPUT = 32_000;
 
@@ -101,6 +102,21 @@ export function makeTools({ session, fs, onMutate }: ToolDeps) {
         mutated();
         return { ok: true, replacements: replaceAll ? count : 1 };
       },
+    }),
+
+    load_skill: tool({
+      description:
+        "Load the full instructions for an installed Agent Skill. Call this " +
+        "before using a matching skill advertised in the system prompt.",
+      inputSchema: z.object({
+        name: z
+          .string()
+          .min(1)
+          .max(64)
+          .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+          .describe("Lowercase skill name from the available skills list"),
+      }),
+      execute: async ({ name }) => loadInstalledSkill(await fs(), name),
     }),
   };
 }

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useChat } from "@ai-sdk/react";
 import { Streamdown } from "streamdown";
 import { code } from "@streamdown/code";
@@ -19,8 +19,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ArrowUp, Brain, ChevronRight, CircleAlert, KeyRound, Square } from "lucide-react";
+import {
+  ArrowUp,
+  Brain,
+  ChevronRight,
+  CircleAlert,
+  KeyRound,
+  Square,
+} from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { chatFor } from "@/lib/agent/chats";
+import { onFsChanged } from "@/lib/events";
+import { sharedFs } from "@/lib/sandbox";
+import { discoverInstalledSkills, type InstalledSkill } from "@/lib/skills";
 import { PROVIDER_LABELS, listModels, type Provider } from "@/lib/models";
 import { useStudio, type AgentSession } from "@/lib/store";
 import { cn } from "@/lib/utils";
@@ -76,20 +87,33 @@ function ModelPicker({ session }: { session: AgentSession }) {
   const key = useStudio((st) => st.keys[session.provider]);
   const setSessionModel = useStudio((st) => st.setSessionModel);
   const [models, setModels] = useState<string[] | null>(null);
+  const [modelError, setModelError] = useState(false);
+  const request = useRef(0);
 
-  useEffect(() => {
+  const refresh = useCallback(async (force = false) => {
     if (!key) {
       setModels(null);
+      setModelError(false);
       return;
     }
-    let alive = true;
-    listModels(session.provider, key)
-      .then((ms) => alive && setModels(ms))
-      .catch(() => alive && setModels(null));
+    const id = ++request.current;
+    try {
+      const found = await listModels(session.provider, key, force);
+      if (request.current === id) {
+        setModels(found);
+        setModelError(false);
+      }
+    } catch {
+      if (request.current === id) setModelError(true);
+    }
+  }, [key, session.provider]);
+
+  useEffect(() => {
+    void refresh();
     return () => {
-      alive = false;
+      request.current++;
     };
-  }, [session.provider, key]);
+  }, [refresh]);
 
   const options = models?.includes(session.model)
     ? models
@@ -99,6 +123,9 @@ function ModelPicker({ session }: { session: AgentSession }) {
     <Select
       value={session.model}
       onValueChange={(v) => v && setSessionModel(session.id, v)}
+      onOpenChange={(open) => {
+        if (open && key && (models === null || modelError)) void refresh(true);
+      }}
     >
       <SelectTrigger
         size="sm"
@@ -115,6 +142,45 @@ function ModelPicker({ session }: { session: AgentSession }) {
         ))}
       </SelectContent>
     </Select>
+  );
+}
+
+function SkillsLoaded() {
+  const [skills, setSkills] = useState<InstalledSkill[]>([]);
+
+  useEffect(() => {
+    let alive = true;
+    const scan = () => {
+      void sharedFs()
+        .then(discoverInstalledSkills)
+        .then((found) => {
+          if (alive) setSkills(found);
+        });
+    };
+    scan();
+    const off = onFsChanged(scan);
+    return () => {
+      alive = false;
+      off();
+    };
+  }, []);
+
+  if (skills.length === 0) return null;
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <span className="ml-auto text-xs text-muted-foreground">
+            {skills.length} {skills.length === 1 ? "skill" : "skills"} loaded
+          </span>
+        }
+      />
+      <TooltipContent side="top">
+        {skills.map((skill) => (
+          <div key={skill.name}>{skill.name}</div>
+        ))}
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -264,7 +330,7 @@ export function SessionView({ session }: { session: AgentSession }) {
 
       <div className="bg-background">
         <div className="mx-auto max-w-3xl p-3">
-          <div className="flex items-end gap-1.5 rounded-[1.75rem] bg-muted/60 py-2 pl-4 pr-2 transition-colors focus-within:bg-muted/80">
+          <div className="grid grid-cols-[minmax(0,1fr)_2rem] items-center gap-2 rounded-[1.75rem] bg-muted/60 py-2 pl-4 pr-2 transition-colors focus-within:bg-muted/80">
             <Textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -275,14 +341,14 @@ export function SessionView({ session }: { session: AgentSession }) {
                 }
               }}
               placeholder={`Message ${PROVIDER_LABELS[session.provider]}…`}
-              className="min-h-8 max-h-48 resize-none border-0 px-1 shadow-none focus-visible:ring-0 bg-transparent dark:bg-transparent"
+              className="min-h-8 min-w-0 w-full max-h-48 resize-none border-0 px-1 shadow-none focus-visible:ring-0 bg-transparent dark:bg-transparent"
               rows={1}
             />
             {busy ? (
               <Button
                 size="icon"
                 variant="outline"
-                className="shrink-0 self-end rounded-full"
+                className="rounded-full"
                 aria-label="Stop"
                 onClick={() => void stop()}
               >
@@ -291,7 +357,7 @@ export function SessionView({ session }: { session: AgentSession }) {
             ) : (
               <Button
                 size="icon"
-                className="shrink-0 self-end rounded-full"
+                className="rounded-full"
                 aria-label="Send"
                 disabled={!input.trim() || !hasKey}
                 onClick={send}
@@ -303,6 +369,7 @@ export function SessionView({ session }: { session: AgentSession }) {
           <div className="mt-1 flex items-center">
             <ProviderPicker session={session} />
             <ModelPicker session={session} />
+            <SkillsLoaded />
           </div>
         </div>
       </div>

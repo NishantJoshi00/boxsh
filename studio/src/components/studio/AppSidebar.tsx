@@ -20,6 +20,7 @@ import {
   Bot,
   Folder,
   KeyRound,
+  PackagePlus,
   Plus,
   Sparkles,
   SquareTerminal,
@@ -63,6 +64,7 @@ export function AppSidebar() {
   const removeSession = useStudio((st) => st.removeSession);
   const setView = useStudio((st) => st.setView);
   const setKeysOpen = useStudio((st) => st.setKeysOpen);
+  const setSkillsOpen = useStudio((st) => st.setSkillsOpen);
 
   return (
     <Sidebar>
@@ -155,6 +157,21 @@ export function AppSidebar() {
               }
             />
             <TooltipContent side="right">API keys &amp; models</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Add skill"
+                  onClick={() => setSkillsOpen(true)}
+                >
+                  <PackagePlus />
+                </Button>
+              }
+            />
+            <TooltipContent side="right">Add skill</TooltipContent>
           </Tooltip>
         </div>
       </SidebarFooter>
