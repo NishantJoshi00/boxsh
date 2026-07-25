@@ -4,7 +4,6 @@ import { Streamdown } from "streamdown";
 import { code } from "@streamdown/code";
 import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Kbd } from "@/components/ui/kbd";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
@@ -22,10 +21,56 @@ import {
 } from "@/components/ui/select";
 import { ArrowUp, Brain, ChevronRight, CircleAlert, KeyRound, Square } from "lucide-react";
 import { chatFor } from "@/lib/agent/chats";
-import { PROVIDER_LABELS, listModels } from "@/lib/models";
+import { PROVIDER_LABELS, listModels, type Provider } from "@/lib/models";
 import { useStudio, type AgentSession } from "@/lib/store";
 import { cn } from "@/lib/utils";
-import { ToolCard } from "./ToolCard";
+import { ToolGroup, type ToolPartLike } from "./ToolCard";
+
+type Segment =
+  | { kind: "part"; part: { type: string }; key: number }
+  | { kind: "tools"; parts: ToolPartLike[]; key: number };
+
+/** Group consecutive tool invocations into one collapsible summary. */
+function segment(parts: readonly { type: string }[]): Segment[] {
+  const out: Segment[] = [];
+  parts.forEach((part, i) => {
+    // Invisible step boundaries must not break tool-run grouping.
+    if (part.type === "step-start") return;
+    if (part.type.startsWith("tool-")) {
+      const last = out[out.length - 1];
+      if (last?.kind === "tools") last.parts.push(part as unknown as ToolPartLike);
+      else out.push({ kind: "tools", parts: [part as unknown as ToolPartLike], key: i });
+    } else {
+      out.push({ kind: "part", part, key: i });
+    }
+  });
+  return out;
+}
+
+function ProviderPicker({ session }: { session: AgentSession }) {
+  const setSessionProvider = useStudio((st) => st.setSessionProvider);
+  return (
+    <Select
+      value={session.provider}
+      onValueChange={(v) => v && setSessionProvider(session.id, v as Provider)}
+    >
+      <SelectTrigger
+        size="sm"
+        className="h-7 gap-1 border-0 bg-transparent dark:bg-transparent shadow-none text-xs text-muted-foreground hover:text-foreground"
+        aria-label="Provider"
+      >
+        <SelectValue>{PROVIDER_LABELS[session.provider]}</SelectValue>
+      </SelectTrigger>
+      <SelectContent>
+        {(Object.keys(PROVIDER_LABELS) as Provider[]).map((p) => (
+          <SelectItem key={p} value={p}>
+            {PROVIDER_LABELS[p]}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
 
 function ModelPicker({ session }: { session: AgentSession }) {
   const key = useStudio((st) => st.keys[session.provider]);
@@ -74,6 +119,10 @@ function ModelPicker({ session }: { session: AgentSession }) {
 }
 
 const plugins = { code };
+const noControls = { code: false, table: false } as const;
+// Streamdown bug: with lineNumbers off, highlighted line spans render inline
+// with no newlines — force each line span back to its own row.
+const codeLineFix = "[&_[data-streamdown=code-block-body]_pre>code>span]:block";
 
 function Reasoning({ text, streaming }: { text: string; streaming: boolean }) {
   const [open, setOpen] = useState(false);
@@ -85,7 +134,13 @@ function Reasoning({ text, streaming }: { text: string; streaming: boolean }) {
         {streaming ? "Thinking…" : "Thought process"}
       </CollapsibleTrigger>
       <CollapsibleContent className="mt-1 border-l-2 pl-3 text-sm text-muted-foreground">
-        <Streamdown plugins={plugins} isAnimating={streaming}>
+        <Streamdown
+          plugins={plugins}
+          isAnimating={streaming}
+          lineNumbers={false}
+          controls={noControls}
+          className={codeLineFix}
+        >
           {text}
         </Streamdown>
       </CollapsibleContent>
@@ -94,10 +149,7 @@ function Reasoning({ text, streaming }: { text: string; streaming: boolean }) {
 }
 
 export function SessionView({ session }: { session: AgentSession }) {
-  const chat = useMemo(
-    () => chatFor(session.id, session.provider),
-    [session.id, session.provider],
-  );
+  const chat = useMemo(() => chatFor(session.id), [session.id]);
   const { messages, sendMessage, stop, status, error, clearError } = useChat({ chat });
   const [input, setInput] = useState("");
   const hasKey = useStudio((st) => Boolean(st.keys[session.provider]));
@@ -148,14 +200,25 @@ export function SessionView({ session }: { session: AgentSession }) {
                     .join("")}
                 </div>
               ) : (
-                m.parts.map((part, i) => {
+                segment(m.parts).map((seg) => {
+                  const i = seg.key;
+                  if (seg.kind === "tools") {
+                    return <ToolGroup key={i} parts={seg.parts} />;
+                  }
+                  const part = seg.part as {
+                    type: string;
+                    text: string;
+                    state?: string;
+                  };
                   if (part.type === "text") {
                     return (
                       <Streamdown
                         key={i}
                         plugins={plugins}
                         isAnimating={part.state === "streaming"}
-                        className="text-sm"
+                        lineNumbers={false}
+                        controls={noControls}
+                        className={cn("text-sm", codeLineFix)}
                       >
                         {part.text}
                       </Streamdown>
@@ -163,11 +226,12 @@ export function SessionView({ session }: { session: AgentSession }) {
                   }
                   if (part.type === "reasoning") {
                     return part.text.trim() ? (
-                      <Reasoning key={i} text={part.text} streaming={part.state === "streaming"} />
+                      <Reasoning
+                        key={i}
+                        text={part.text}
+                        streaming={part.state === "streaming"}
+                      />
                     ) : null;
-                  }
-                  if (part.type.startsWith("tool-")) {
-                    return <ToolCard key={i} part={part as never} />;
                   }
                   return null;
                 })
@@ -198,9 +262,9 @@ export function SessionView({ session }: { session: AgentSession }) {
         </div>
       </ScrollArea>
 
-      <div className="border-t bg-background">
+      <div className="bg-background">
         <div className="mx-auto max-w-3xl p-3">
-          <div className="flex items-end gap-2 rounded-xl border bg-card p-2 focus-within:ring-2 focus-within:ring-ring">
+          <div className="flex items-end gap-1.5 rounded-[1.75rem] bg-muted/60 py-2 pl-4 pr-2 transition-colors focus-within:bg-muted/80">
             <Textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -211,16 +275,23 @@ export function SessionView({ session }: { session: AgentSession }) {
                 }
               }}
               placeholder={`Message ${PROVIDER_LABELS[session.provider]}…`}
-              className="min-h-9 max-h-48 resize-none border-0 shadow-none focus-visible:ring-0 bg-transparent dark:bg-transparent"
+              className="min-h-8 max-h-48 resize-none border-0 px-1 shadow-none focus-visible:ring-0 bg-transparent dark:bg-transparent"
               rows={1}
             />
             {busy ? (
-              <Button size="icon" variant="outline" aria-label="Stop" onClick={() => void stop()}>
+              <Button
+                size="icon"
+                variant="outline"
+                className="shrink-0 self-end rounded-full"
+                aria-label="Stop"
+                onClick={() => void stop()}
+              >
                 <Square />
               </Button>
             ) : (
               <Button
                 size="icon"
+                className="shrink-0 self-end rounded-full"
                 aria-label="Send"
                 disabled={!input.trim() || !hasKey}
                 onClick={send}
@@ -229,11 +300,9 @@ export function SessionView({ session }: { session: AgentSession }) {
               </Button>
             )}
           </div>
-          <div className="mt-1 flex items-center justify-between">
+          <div className="mt-1 flex items-center">
+            <ProviderPicker session={session} />
             <ModelPicker session={session} />
-            <p className="text-[11px] text-muted-foreground">
-              <Kbd>Enter</Kbd> to send · <Kbd>Shift</Kbd>+<Kbd>Enter</Kbd> for a new line
-            </p>
           </div>
         </div>
       </div>

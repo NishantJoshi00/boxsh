@@ -17,9 +17,10 @@ interface TermInstance {
 
 /** Lives outside React so terminals survive view switches and tab changes. */
 const instances = new Map<number, TermInstance>();
+const exitListeners = new Set<(id: number) => void>();
 let nextTermId = 1;
 
-function startRepl(term: Terminal) {
+function startRepl(term: Terminal, onExit: () => void) {
   const sessionReady = createSession();
   let buf = "";
   let running = false;
@@ -32,6 +33,11 @@ function startRepl(term: Terminal) {
   const run = async () => {
     const script = buf;
     buf = "";
+    if (script.trim() === "exit") {
+      term.write("\r\n");
+      onExit();
+      return;
+    }
     running = true;
     term.write("\r\n");
     if (script.trim() === "clear") {
@@ -108,7 +114,7 @@ function getInstance(id: number): TermInstance {
     const fit = new FitAddon();
     term.loadAddon(fit);
     term.open(container);
-    startRepl(term);
+    startRepl(term, () => exitListeners.forEach((l) => l(id)));
     inst = { id, container, term, fit };
     instances.set(id, inst);
   }
@@ -175,6 +181,14 @@ export function TerminalView({ hidden }: { hidden: boolean }) {
     });
   };
 
+  // The `exit` shell command closes its terminal.
+  useEffect(() => {
+    exitListeners.add(closeTerm);
+    return () => {
+      exitListeners.delete(closeTerm);
+    };
+  }, []);
+
   return (
     <div className={cn("flex h-full flex-col", hidden && "hidden")}>
       <div className="flex items-center gap-1 border-b px-2 py-1.5 pl-12">
@@ -190,18 +204,16 @@ export function TerminalView({ hidden }: { hidden: boolean }) {
             onClick={() => setActive(id)}
           >
             Terminal {i + 1}
-            {terms.length > 1 && (
-              <button
-                aria-label="Close terminal"
-                className="opacity-0 group-hover:opacity-100 hover:text-foreground"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  closeTerm(id);
-                }}
-              >
-                <X className="size-3" />
-              </button>
-            )}
+            <button
+              aria-label="Close terminal"
+              className="opacity-50 hover:opacity-100 hover:text-foreground"
+              onClick={(e) => {
+                e.stopPropagation();
+                closeTerm(id);
+              }}
+            >
+              <X className="size-3" />
+            </button>
           </div>
         ))}
         <Button variant="ghost" size="icon-sm" aria-label="New terminal" onClick={addTerm}>

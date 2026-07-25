@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { generateSandboxName } from "./names";
-import { DEFAULT_MODELS, PROVIDER_LABELS, type Provider } from "./models";
+import { DEFAULT_MODELS, type Provider } from "./models";
 
 export interface AgentSession {
   id: string;
@@ -24,10 +24,11 @@ interface StudioState {
   keysOpen: boolean;
 
   setSandboxName: (name: string) => void;
-  addSession: (provider: Provider) => string;
+  addSession: () => string;
   removeSession: (id: string) => void;
   setSessionTitle: (id: string, title: string) => void;
   setSessionModel: (id: string, model: string) => void;
+  setSessionProvider: (id: string, provider: Provider) => void;
   setView: (view: WorkspaceView) => void;
   setKey: (provider: Provider, key: string) => void;
   setKeysOpen: (open: boolean) => void;
@@ -46,16 +47,16 @@ export const useStudio = create<StudioState>()(
       keysOpen: false,
 
       setSandboxName: (sandboxName) => set({ sandboxName }),
-      addSession: (provider) => {
+      addSession: () => {
         const id = nextId();
         set((st) => ({
           sessions: [
             ...st.sessions,
             {
               id,
-              provider,
-              title: `New ${PROVIDER_LABELS[provider]} session`,
-              model: DEFAULT_MODELS[provider],
+              provider: "anthropic" as const,
+              title: "New session",
+              model: DEFAULT_MODELS.anthropic,
             },
           ],
           view: { kind: "session", sessionId: id },
@@ -77,6 +78,12 @@ export const useStudio = create<StudioState>()(
       setSessionModel: (id, model) =>
         set((st) => ({
           sessions: st.sessions.map((s) => (s.id === id ? { ...s, model } : s)),
+        })),
+      setSessionProvider: (id, provider) =>
+        set((st) => ({
+          sessions: st.sessions.map((s) =>
+            s.id === id ? { ...s, provider, model: DEFAULT_MODELS[provider] } : s,
+          ),
         })),
       setView: (view) => set({ view }),
       setKey: (provider, key) =>

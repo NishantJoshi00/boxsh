@@ -1,4 +1,4 @@
-import { Box, Bot, Sparkles } from "lucide-react";
+import { Box, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Empty,
@@ -24,14 +24,9 @@ export function EmptyState() {
         </EmptyDescription>
       </EmptyHeader>
       <EmptyContent>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => addSession("anthropic")}>
-            <Sparkles /> Claude Code session
-          </Button>
-          <Button variant="outline" onClick={() => addSession("openai")}>
-            <Bot /> Codex session
-          </Button>
-        </div>
+        <Button onClick={() => addSession()}>
+          <Plus /> New session
+        </Button>
       </EmptyContent>
     </Empty>
   );

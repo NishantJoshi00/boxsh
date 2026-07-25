@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { Streamdown } from "streamdown";
+import { code } from "@streamdown/code";
 import type { DirEntry } from "@boxsh/sandbox";
 import {
   ResizableHandle,
@@ -21,7 +23,6 @@ import {
   Folder,
   FolderOpen,
   FolderPlus,
-  RefreshCw,
   Upload,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -33,6 +34,52 @@ import { emitFsChanged, onFsChanged } from "@/lib/events";
 import { cn } from "@/lib/utils";
 
 const PREVIEW_LIMIT = 512 * 1024;
+/** Above this, skip Shiki and show plain text — highlighting gets slow. */
+const HIGHLIGHT_LIMIT = 100 * 1024;
+
+const plugins = { code };
+const noControls = { code: false, table: false } as const;
+
+const LANG_BY_EXT: Record<string, string> = {
+  rs: "rust",
+  ts: "typescript",
+  tsx: "tsx",
+  js: "javascript",
+  jsx: "jsx",
+  mjs: "javascript",
+  cjs: "javascript",
+  json: "json",
+  toml: "toml",
+  md: "markdown",
+  html: "html",
+  css: "css",
+  sh: "bash",
+  bash: "bash",
+  py: "python",
+  yml: "yaml",
+  yaml: "yaml",
+  astro: "astro",
+  c: "c",
+  h: "c",
+  cpp: "cpp",
+  go: "go",
+  sql: "sql",
+  xml: "xml",
+  txt: "text",
+};
+
+function langFor(path: string): string {
+  const name = path.split("/").pop() ?? "";
+  const ext = name.includes(".") ? (name.split(".").pop()?.toLowerCase() ?? "") : "";
+  return LANG_BY_EXT[ext] ?? (ext || "text");
+}
+
+/** Wrap file content in a fence longer than any backtick run it contains. */
+function fenced(content: string, lang: string): string {
+  const longest = (content.match(/`+/g) ?? []).reduce((m, s) => Math.max(m, s.length), 0);
+  const fence = "`".repeat(Math.max(3, longest + 1));
+  return `${fence}${lang}\n${content}\n${fence}`;
+}
 
 function formatSize(n: number): string {
   if (n < 1024) return `${n} B`;
@@ -289,14 +336,6 @@ export function FilesView({ hidden }: { hidden: boolean }) {
                   />
                   <TooltipContent>Upload files into the sandbox</TooltipContent>
                 </Tooltip>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label="Refresh"
-                  onClick={() => setVersion((v) => v + 1)}
-                >
-                  <RefreshCw />
-                </Button>
               </div>
             </div>
             <ScrollArea className="flex-1 min-h-0">
@@ -347,10 +386,23 @@ export function FilesView({ hidden }: { hidden: boolean }) {
                 </Badge>
               </div>
               <ScrollArea className="flex-1 min-h-0">
-                <pre className="p-3 text-xs font-mono whitespace-pre-wrap break-all">
-                  {preview.content}
-                  {preview.truncated && "\n… (preview truncated)"}
-                </pre>
+                {preview.content.length > HIGHLIGHT_LIMIT ? (
+                  <pre className="p-3 text-xs font-mono whitespace-pre-wrap break-all">
+                    {preview.content}
+                  </pre>
+                ) : (
+                  <Streamdown
+                    plugins={plugins}
+                    mode="static"
+                    controls={noControls}
+                    className="p-3 text-sm [&_pre]:whitespace-pre-wrap"
+                  >
+                    {fenced(preview.content, langFor(selected ?? ""))}
+                  </Streamdown>
+                )}
+                {preview.truncated && (
+                  <p className="px-3 pb-3 text-xs text-muted-foreground">… preview truncated</p>
+                )}
               </ScrollArea>
             </div>
           ) : null}

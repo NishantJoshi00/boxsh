@@ -18,10 +18,16 @@ import { prompts } from "./prompts";
 
 export type StudioUIMessage = UIMessage<unknown, never, InferUITools<StudioTools>>;
 
-function resolveModel(sessionId: string, provider: Provider) {
+function sessionProvider(sessionId: string): Provider {
+  const { sessions } = useStudio.getState();
+  return sessions.find((s) => s.id === sessionId)?.provider ?? "anthropic";
+}
+
+function resolveModel(sessionId: string) {
   const { keys, sessions } = useStudio.getState();
-  const model =
-    sessions.find((s) => s.id === sessionId)?.model ?? DEFAULT_MODELS[provider];
+  const session = sessions.find((s) => s.id === sessionId);
+  const provider = session?.provider ?? "anthropic";
+  const model = session?.model ?? DEFAULT_MODELS[provider];
   if (provider === "anthropic") {
     return createAnthropic({
       apiKey: keys.anthropic,
@@ -44,23 +50,24 @@ function sandboxFor(sessionId: string): Promise<Sandbox> {
   return sb;
 }
 
-export function chatFor(sessionId: string, provider: Provider): Chat<StudioUIMessage> {
+export function chatFor(sessionId: string): Chat<StudioUIMessage> {
   let chat = chats.get(sessionId);
   if (!chat) {
     const agent = new ToolLoopAgent({
-      model: resolveModel(sessionId, provider),
-      instructions: prompts[provider],
+      model: resolveModel(sessionId),
+      instructions: prompts[sessionProvider(sessionId)],
       tools: makeTools({
         session: () => sandboxFor(sessionId),
         fs: sharedFs,
         onMutate: emitFsChanged,
       }),
       stopWhen: isStepCount(30),
-      // Key and model choice live in the store and may change after this
-      // agent is constructed; re-resolve on every call.
+      // Provider, model, and key live in the store and can change between
+      // turns (the session's provider dropdown); re-resolve on every call.
       prepareCall: ({ options: _options, ...rest }) => ({
         ...rest,
-        model: resolveModel(sessionId, provider),
+        model: resolveModel(sessionId),
+        instructions: prompts[sessionProvider(sessionId)],
       }),
     });
     chat = new Chat<StudioUIMessage>({

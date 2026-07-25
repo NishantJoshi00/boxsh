@@ -13,12 +13,6 @@ import {
   SidebarMenuItem,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
@@ -31,8 +25,22 @@ import {
   SquareTerminal,
   X,
 } from "lucide-react";
-import { useStudio } from "@/lib/store";
-import { disposeChat } from "@/lib/agent/chats";
+import { useChat } from "@ai-sdk/react";
+import { Spinner } from "@/components/ui/spinner";
+import { useStudio, type AgentSession } from "@/lib/store";
+import { chatFor, disposeChat } from "@/lib/agent/chats";
+
+/** Provider icon that turns into a spinner while the session's agent runs. */
+function SessionIcon({ session }: { session: AgentSession }) {
+  const { status } = useChat({
+    chat: chatFor(session.id),
+    throttle: 250,
+  });
+  if (status === "submitted" || status === "streaming") {
+    return <Spinner className="size-4" />;
+  }
+  return session.provider === "anthropic" ? <Sparkles /> : <Bot />;
+}
 
 function SandboxName() {
   const name = useStudio((st) => st.sandboxName);
@@ -69,25 +77,9 @@ export function AppSidebar() {
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel>Sessions</SidebarGroupLabel>
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={
-                <SidebarGroupAction title="New session">
-                  <Plus />
-                </SidebarGroupAction>
-              }
-            />
-            <DropdownMenuContent side="right" align="start">
-              <DropdownMenuItem onClick={() => addSession("anthropic")}>
-                <Sparkles className="text-muted-foreground" />
-                Claude Code session
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => addSession("openai")}>
-                <Bot className="text-muted-foreground" />
-                Codex session
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <SidebarGroupAction title="New session" onClick={() => addSession()}>
+            <Plus />
+          </SidebarGroupAction>
           <SidebarGroupContent>
             <SidebarMenu>
               {sessions.length === 0 && (
@@ -101,7 +93,7 @@ export function AppSidebar() {
                     isActive={view.kind === "session" && view.sessionId === s.id}
                     onClick={() => setView({ kind: "session", sessionId: s.id })}
                   >
-                    {s.provider === "anthropic" ? <Sparkles /> : <Bot />}
+                    <SessionIcon session={s} />
                     <span className="truncate">{s.title}</span>
                   </SidebarMenuButton>
                   <SidebarMenuAction
