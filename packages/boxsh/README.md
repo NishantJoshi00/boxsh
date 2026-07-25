@@ -69,11 +69,15 @@ Payload note: the full command module is ~2.8 MB gzipped over the wire
 
 ## Documentation
 
-- [Getting started](https://github.com/nishantjoshi/boxsh/blob/main/docs/getting-started.md)
-- [JavaScript API](https://github.com/nishantjoshi/boxsh/blob/main/docs/api.md)
-- [Shell syntax and available commands](https://github.com/nishantjoshi/boxsh/blob/main/docs/commands.md)
-- [Recipes, behavior, and current quirks](https://github.com/nishantjoshi/boxsh/blob/main/docs/behavior.md)
+Shipped inside the package, under `node_modules/boxsh/docs/`:
+
+- `docs/getting-started.md` — install, Node.js, browser/bundler setup
+- `docs/api.md` — `Filesystem`, `Sandbox`, backends, errors
+- `docs/commands.md` — shell syntax and available commands
+- `docs/behavior.md` — recipes, behavior, and current quirks
 
 ## License
 
-MIT OR Apache-2.0, at your option.
+The JavaScript/TypeScript in this package is MIT OR Apache-2.0, at your
+option. The bundled WebAssembly command modules contain compiled third-party
+open-source code; see `THIRD-PARTY-NOTICES.md` for attributions.

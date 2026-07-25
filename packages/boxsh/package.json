@@ -16,16 +16,11 @@
     "dist",
     "src",
     "engine",
+    "docs",
     "LICENSE-MIT",
-    "LICENSE-APACHE"
+    "LICENSE-APACHE",
+    "THIRD-PARTY-NOTICES.md"
   ],
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/nishantjoshi/boxsh.git",
-    "directory": "packages/boxsh"
-  },
-  "homepage": "https://github.com/nishantjoshi/boxsh#readme",
-  "bugs": "https://github.com/nishantjoshi/boxsh/issues",
   "keywords": [
     "sandbox",
     "shell",
@@ -46,7 +41,7 @@
   "scripts": {
     "build": "tsc",
     "build:engine": "node scripts/build-engine.mjs",
-    "prepack": "npm run build && node scripts/check-engine.mjs",
+    "prepack": "npm run build && node scripts/sync-docs.mjs && node scripts/check-engine.mjs",
     "test": "node test/smoke.mjs && node test/api.mjs",
     "test:bundled": "node test/bundled.mjs"
   },
