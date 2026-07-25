@@ -36,8 +36,8 @@ jobs:
         working-directory: studio
         env:
           ASTRO_BASE: /${{ github.event.repository.name }}
-          PUBLIC_AXIOM_TOKEN: ${{ secrets.AXIOM_TOKEN }}
-          PUBLIC_AXIOM_DATASET: boxsh-studio
+          PUBLIC_AXIOM_TOKEN: ${{ secrets.PUBLIC_AXIOM_TOKEN }}
+          PUBLIC_AXIOM_DATASET: ${{ secrets.PUBLIC_AXIOM_DATASET }}
         run: |
           npm ci
           npm run build
