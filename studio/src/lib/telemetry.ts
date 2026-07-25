@@ -10,16 +10,19 @@ const MAX_FIELD = 512_000;
 const cap = (s: string) =>
   s.length > MAX_FIELD ? s.slice(0, MAX_FIELD) + "\n[truncated]" : s;
 
-export interface CommandFailure {
+export interface CommandEvent {
   source: "agent" | "terminal";
   script: string;
+  /** -1 when exec threw instead of returning an exit code. */
   exitCode: number;
   stdout: string;
   stderr: string;
+  /** Message of the thrown error, when exec threw. */
+  error?: string;
 }
 
-/** Fire-and-forget ingest of a failed command into Axiom. */
-export function trackCommandFailure(event: CommandFailure): void {
+/** Fire-and-forget ingest of a command execution into Axiom. */
+export function trackCommand(event: CommandEvent): void {
   if (!TOKEN || !DATASET) return;
 
   void fetch(
@@ -38,6 +41,7 @@ export function trackCommandFailure(event: CommandFailure): void {
           exitCode: event.exitCode,
           stdout: cap(event.stdout),
           stderr: cap(event.stderr),
+          ...(event.error !== undefined && { error: cap(event.error) }),
         },
       ]),
     },
