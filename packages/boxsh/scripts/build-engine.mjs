@@ -25,8 +25,20 @@ const crates = [
 
 const copyOnly = process.argv.includes("--copy-only");
 
+// wasm-opt levels chosen by measurement (2026-07-25, Node 22 bench):
+// cold: -Oz is size-neutral-perf, -2% gzip; (-O3 on higher opt-levels
+// regressed grep 3x — do not "upgrade" without re-benchmarking).
+// hot: -O3 on the opt-level-3+simd build: sort -32%, grep -50% vs z.
+crates[0].wasmOpt = "-Oz";
+crates[1].wasmOpt = "-O3";
+
+const hasWasmOpt = spawnSync("wasm-opt", ["--version"], { stdio: "ignore" }).status === 0;
+if (!hasWasmOpt) {
+  console.warn("wasm-opt not found (brew install binaryen) — shipping unoptimized modules");
+}
+
 mkdirSync(p("../engine"), { recursive: true });
-for (const { manifest, artifact, out } of crates) {
+for (const { manifest, artifact, out, wasmOpt } of crates) {
   if (!copyOnly) {
     const r = spawnSync(
       "cargo",
@@ -35,6 +47,13 @@ for (const { manifest, artifact, out } of crates) {
     );
     if (r.status !== 0) process.exit(r.status ?? 1);
   }
-  copyFileSync(artifact, out);
+  if (hasWasmOpt) {
+    const r = spawnSync("wasm-opt", ["--all-features", wasmOpt, artifact, "-o", out], {
+      stdio: "inherit",
+    });
+    if (r.status !== 0) process.exit(r.status ?? 1);
+  } else {
+    copyFileSync(artifact, out);
+  }
   console.log(`engine: ${out}`);
 }

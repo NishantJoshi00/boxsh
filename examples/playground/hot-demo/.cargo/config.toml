@@ -1,0 +1,4 @@
+# WebAssembly SIMD for the hot path (regex/memchr vectorize).
+# Floor: all evergreen browsers, Safari >= 16.4, Node >= 16.4.
+[target.wasm32-wasip1]
+rustflags = ["-C", "target-feature=+simd128"]

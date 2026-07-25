@@ -53,6 +53,11 @@ The full command module is ~2.8 MB gzipped (~2 MB brotli); it loads once and
 caches like any static asset. No COOP/COEP headers, no SharedArrayBuffer —
 boxsh works in a plain `<iframe>`.
 
+The optimized command module uses WebAssembly SIMD, supported by all
+evergreen browsers, Safari 16.4+, and Node 16.4+. On a runtime without SIMD,
+call `loadEngine({ commands })` without `optimizedCommands` — everything
+still works through the portable module.
+
 ## TypeScript
 
 boxsh is written in TypeScript and ships strict type declarations,

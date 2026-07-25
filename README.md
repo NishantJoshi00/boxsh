@@ -1,6 +1,8 @@
-# boxsh
+<p align="center">
+  <img src="docs/assets/boxsh-logo.png" alt="boxsh logo" width="200">
+</p>
 
-[![CI](https://github.com/nishantjoshi/boxsh/actions/workflows/ci.yml/badge.svg)](https://github.com/nishantjoshi/boxsh/actions/workflows/ci.yml)
+<h1 align="center">boxsh</h1>
 
 Run shell commands against an isolated virtual filesystem from JavaScript.
 
