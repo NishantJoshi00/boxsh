@@ -1,72 +1,32 @@
 # Getting started
 
-This guide builds boxsh from a source checkout, runs a first script in Node.js,
-and starts the browser playground.
+boxsh runs shell commands against a virtual filesystem owned by your
+application. It works in Node.js and modern browsers without using the host
+shell or host filesystem.
 
-## Requirements
+> **Pre-release:** boxsh is not yet published to npm. The installation command
+> below will work after the first package release.
 
-- Node.js 22
-- The stable Rust toolchain
-- A browser with WebAssembly support for the playground
-
-The repository's `rust-toolchain.toml` installs the `wasm32-wasip1` target,
-`rustfmt`, and Clippy automatically when using rustup.
-
-## Build from source
-
-Clone the repository:
+## Install
 
 ```sh
-git clone https://github.com/nishantjoshi/boxsh.git
-cd boxsh
+npm install @boxsh/sandbox
 ```
 
-Build the command modules:
+boxsh requires Node.js 20 or newer. Browser applications need a bundler that
+supports `new URL(..., import.meta.url)` asset references.
 
-```sh
-cargo build --release --target wasm32-wasip1 \
-  --manifest-path examples/playground/coreutils-demo/Cargo.toml
-
-cargo build --release --target wasm32-wasip1 \
-  --manifest-path examples/playground/hot-demo/Cargo.toml
-```
-
-Build the JavaScript package:
-
-```sh
-npm ci --prefix packages/boxsh
-npm run build --prefix packages/boxsh
-```
-
-The generated JavaScript and type declarations are written to
-`packages/boxsh/dist`.
-
-## Run a script in Node.js
-
-Create `example.mjs` in the repository root:
+## Run your first command
 
 ```js
-import { readFileSync } from "node:fs";
-import {
-  Filesystem,
-  Sandbox,
-  loadEngine,
-  memory,
-} from "./packages/boxsh/dist/index.js";
+import { Filesystem, Sandbox, loadEngine, memory } from "@boxsh/sandbox";
 
-const engine = await loadEngine({
-  commands: readFileSync(
-    "./examples/playground/coreutils-demo/target/wasm32-wasip1/release/coreutils-demo.wasm",
-  ),
-  optimizedCommands: readFileSync(
-    "./examples/playground/hot-demo/target/wasm32-wasip1/release/hot_demo.wasm",
-  ),
-});
-
+const engine = await loadEngine();
 const filesystem = await Filesystem.create({ backend: memory() });
+
 await filesystem.mkdir("/workspace");
 await filesystem.writeFile(
-  "/workspace/fruits.txt",
+  "/workspace/data.txt",
   "pear\napple\nbanana\n",
 );
 
@@ -76,86 +36,59 @@ const sandbox = new Sandbox({
   cwd: "/workspace",
 });
 
-const result = await sandbox.exec("sort fruits.txt | head -2");
+const result = await sandbox.exec("sort data.txt | head -2");
 
-console.log(result.stdout);
-console.error(result.stderr);
-process.exitCode = result.code;
+console.log(result.stdout); // "apple\nbanana\n"
+console.log(result.code);   // 0
 ```
 
-Run it:
+`exec()` returns:
 
-```sh
-node example.mjs
+```ts
+{
+  stdout: string;
+  stderr: string;
+  code: number;
+  stdoutBytes: Uint8Array;
+  stderrBytes: Uint8Array;
+}
 ```
 
-Expected output:
+Use the string properties for text and the byte properties for binary output.
+Non-zero command exits are returned as results rather than thrown as
+exceptions. Environment variables and the working directory persist across
+calls to the same `Sandbox`.
 
-```text
-apple
-banana
-```
+## Use boxsh in the browser
 
-`Sandbox.exec()` returns non-zero command exits as results rather than throwing
-exceptions. See the [API reference](api.md#sandbox) for the complete return
-value.
+The same JavaScript API works with bundlers such as Vite, webpack 5, and
+Rollup. The bundled WebAssembly modules are emitted as assets and fetched the
+first time `loadEngine()` runs.
 
-## Start the browser playground
-
-After building the command modules, serve the repository root with any static
-file server. For example:
-
-```sh
-python3 -m http.server 8420
-```
-
-Open:
-
-- [http://localhost:8420/examples/playground/](http://localhost:8420/examples/playground/)
-  for the interactive shell
-- [http://localhost:8420/examples/playground/bench.html](http://localhost:8420/examples/playground/bench.html)
-  for local benchmarks
-- [http://localhost:8420/examples/comparison/](http://localhost:8420/examples/comparison/)
-  for the browser comparison
-
-The playground stores files in memory. Refreshing the page clears them.
-
-## Browser API setup
-
-In a browser, `loadEngine()` can load command modules by URL:
+To load the command modules from a CDN or another location instead:
 
 ```js
-import {
-  Filesystem,
-  Sandbox,
-  loadEngine,
-  memory,
-} from "/packages/boxsh/dist/index.js";
-
 const engine = await loadEngine({
-  commands:
-    "/examples/playground/coreutils-demo/target/wasm32-wasip1/release/coreutils-demo.wasm",
-  optimizedCommands:
-    "/examples/playground/hot-demo/target/wasm32-wasip1/release/hot_demo.wasm",
+  commands: "https://cdn.example.com/boxsh/commands.wasm",
+  optimizedCommands: "https://cdn.example.com/boxsh/commands-optimized.wasm",
 });
-
-const filesystem = await Filesystem.create({ backend: memory() });
-const sandbox = new Sandbox({ fs: filesystem, engine });
-
-const result = await sandbox.exec("printf 'hello from boxsh\\n'");
-console.log(result.stdout);
 ```
 
-The server must make the JavaScript and WebAssembly files available to the
-page and allow them under its content security and cross-origin policies.
+The full command module is approximately 2.8 MB over the wire with gzip, or
+2 MB with Brotli. It is loaded once and can be cached like any other static
+asset.
+
+The optimized command module uses WebAssembly SIMD. If a target runtime does
+not support SIMD, omit `optimizedCommands`; all commands remain available
+through the standard module.
+
+## TypeScript
+
+boxsh includes its own type declarations. No separate `@types` package is
+needed.
 
 ## Next steps
 
-- Learn the [JavaScript API](api.md).
+- Read the [JavaScript API](api.md).
 - Review [shell syntax and available commands](commands.md).
-- Read the [recipes and current quirks](behavior.md).
-- Run the end-to-end test:
-
-  ```sh
-  npm test --prefix packages/boxsh
-  ```
+- Explore [recipes and behavior](behavior.md).

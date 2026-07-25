@@ -1,46 +1,71 @@
 # Getting started
 
-boxsh runs shell commands against a virtual filesystem that your application
-owns. Nothing touches the machine's shell or host filesystem.
+boxsh runs shell commands against a virtual filesystem owned by your
+application. It works in Node.js and modern browsers without using the host
+shell or host filesystem.
+
+> **Pre-release:** boxsh is not yet published to npm. The installation command
+> below will work after the first package release.
 
 ## Install
 
 ```sh
-npm install boxsh
+npm install @boxsh/sandbox
 ```
 
-Node.js 20 or newer, or any modern browser via a bundler.
+boxsh requires Node.js 20 or newer. Browser applications need a bundler that
+supports `new URL(..., import.meta.url)` asset references.
 
-## First script (Node.js)
+## Run your first command
 
 ```js
-import { Filesystem, Sandbox, loadEngine, memory } from "boxsh";
+import { Filesystem, Sandbox, loadEngine, memory } from "@boxsh/sandbox";
 
-// Loads the wasm command modules bundled with the package.
 const engine = await loadEngine();
+const filesystem = await Filesystem.create({ backend: memory() });
 
-const fs = await Filesystem.create({ backend: memory() });
-await fs.mkdir("/workspace");
-await fs.writeFile("/workspace/data.txt", "alpha\nbeta\ngamma\n");
+await filesystem.mkdir("/workspace");
+await filesystem.writeFile(
+  "/workspace/data.txt",
+  "pear\napple\nbanana\n",
+);
 
-const sandbox = new Sandbox({ fs, engine, cwd: "/workspace" });
+const sandbox = new Sandbox({
+  fs: filesystem,
+  engine,
+  cwd: "/workspace",
+});
 
-const r = await sandbox.exec("sort data.txt | head -2");
-console.log(r.stdout); // "alpha\nbeta\n"
-console.log(r.code);   // 0
+const result = await sandbox.exec("sort data.txt | head -2");
+
+console.log(result.stdout); // "apple\nbanana\n"
+console.log(result.code);   // 0
 ```
 
-`exec()` returns `{ stdout, stderr, code, stdoutBytes, stderrBytes }`.
-Non-zero exit codes are results, not exceptions. Environment variables and
-the working directory persist across `exec()` calls on one `Sandbox`.
+`exec()` returns:
 
-## In the browser
+```ts
+{
+  stdout: string;
+  stderr: string;
+  code: number;
+  stdoutBytes: Uint8Array;
+  stderrBytes: Uint8Array;
+}
+```
 
-The same code works under bundlers that understand
-`new URL(..., import.meta.url)` asset references (Vite, webpack 5, Rollup).
-The wasm modules are emitted as assets and fetched on first `loadEngine()`.
+Use the string properties for text and the byte properties for binary output.
+Non-zero command exits are returned as results rather than thrown as
+exceptions. Environment variables and the working directory persist across
+calls to the same `Sandbox`.
 
-To serve the modules from a CDN or custom location instead:
+## Use boxsh in the browser
+
+The same JavaScript API works with bundlers such as Vite, webpack 5, and
+Rollup. The bundled WebAssembly modules are emitted as assets and fetched the
+first time `loadEngine()` runs.
+
+To load the command modules from a CDN or another location instead:
 
 ```js
 const engine = await loadEngine({
@@ -49,23 +74,21 @@ const engine = await loadEngine({
 });
 ```
 
-The full command module is ~2.8 MB gzipped (~2 MB brotli); it loads once and
-caches like any static asset. No COOP/COEP headers, no SharedArrayBuffer —
-boxsh works in a plain `<iframe>`.
+The full command module is approximately 2.8 MB over the wire with gzip, or
+2 MB with Brotli. It is loaded once and can be cached like any other static
+asset.
 
-The optimized command module uses WebAssembly SIMD, supported by all
-evergreen browsers, Safari 16.4+, and Node 16.4+. On a runtime without SIMD,
-call `loadEngine({ commands })` without `optimizedCommands` — everything
-still works through the portable module.
+The optimized command module uses WebAssembly SIMD. If a target runtime does
+not support SIMD, omit `optimizedCommands`; all commands remain available
+through the standard module.
 
 ## TypeScript
 
-boxsh is written in TypeScript and ships strict type declarations,
-declaration maps, and source — go-to-definition lands in real source files.
-No `@types/*` package is needed.
+boxsh includes its own type declarations. No separate `@types` package is
+needed.
 
 ## Next steps
 
-- [JavaScript API](api.md) — `Filesystem`, `Sandbox`, backends, errors
-- [Shell syntax and available commands](commands.md)
-- [Recipes, behavior, and current quirks](behavior.md)
+- Read the [JavaScript API](api.md).
+- Review [shell syntax and available commands](commands.md).
+- Explore [recipes and behavior](behavior.md).

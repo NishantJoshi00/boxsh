@@ -8,7 +8,7 @@ problem and expected public behavior can be agreed on before implementation.
 
 ## Report an issue
 
-Use [GitHub issues](https://github.com/nishantjoshi/boxsh/issues). Include:
+Use [GitHub issues](https://github.com/NishantJoshi00/boxsh/issues). Include:
 
 - What you expected
 - What happened instead
@@ -29,7 +29,7 @@ Requirements:
 Clone and install:
 
 ```sh
-git clone https://github.com/nishantjoshi/boxsh.git
+git clone https://github.com/NishantJoshi00/boxsh.git
 cd boxsh
 npm ci --prefix packages/boxsh
 ```

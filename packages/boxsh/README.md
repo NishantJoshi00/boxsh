@@ -1,61 +1,73 @@
 # boxsh
 
-Run shell commands against an isolated virtual filesystem from JavaScript —
-in the browser or Node. No host shell, no host filesystem.
+Run shell commands against an isolated virtual filesystem from JavaScript—in
+Node.js or the browser. No host shell and no host filesystem.
+
+> **Pre-release:** boxsh is experimental and is not yet published to npm. APIs
+> may change before the first stable release. Do not treat boxsh as a hardened
+> security boundary.
+
+## Install
+
+Once the first npm release is available:
+
+```sh
+npm install @boxsh/sandbox
+```
+
+boxsh requires Node.js 20 or newer.
+
+## Quick start
 
 ```js
-import { Filesystem, Sandbox, loadEngine, memory } from "boxsh";
+import { Filesystem, Sandbox, loadEngine, memory } from "@boxsh/sandbox";
 
-const engine = await loadEngine(); // bundled wasm command modules
+const engine = await loadEngine();
+const filesystem = await Filesystem.create({ backend: memory() });
 
-const fs = await Filesystem.create({ backend: memory() });
-await fs.mkdir("/workspace");
-await fs.writeFile("/workspace/message.txt", "hello\nfrom boxsh\n");
+await filesystem.mkdir("/workspace");
+await filesystem.writeFile(
+  "/workspace/message.txt",
+  "hello\nfrom boxsh\n",
+);
 
-const sandbox = new Sandbox({ fs, engine, cwd: "/workspace" });
+const sandbox = new Sandbox({
+  fs: filesystem,
+  engine,
+  cwd: "/workspace",
+});
 
 const result = await sandbox.exec("cat message.txt | wc -l");
+
 console.log(result.stdout); // "2\n"
 console.log(result.code);   // 0
 ```
 
-boxsh gives an application two objects:
+`Sandbox.exec()` returns standard output, standard error, and an exit code.
+Non-zero command exits are returned as results rather than thrown as
+exceptions.
 
-- `Filesystem` manages files, directories, archives, and storage backends.
-- `Sandbox` runs shell scripts against that filesystem without touching the
-  machine's shell or host filesystem.
+## What boxsh provides
 
-It is useful for browser tools, agent workspaces, test fixtures, and other
-applications that need shell-like workflows over application-owned data.
-
-> **Experimental.** APIs may change before 1.0. Do not treat boxsh as a
-> hardened security boundary.
-
-## What works
-
-- Text and binary file I/O (`Uint8Array`-safe end to end)
-- Directories, metadata, rename, recursive removal, typed errors
+- Text and binary file operations
+- Directories, metadata, rename, and recursive removal
 - Pipes, redirects, conditionals, variables, command substitution, heredocs,
   and simple loops
-- More than 70 common commands (`cat`, `cp`, `grep`, `ls`, `mkdir`, `rm`,
-  `sort`, `tail`, `tee`, `wc`, …)
-- Persistent env and working directory within a sandbox session
-- TAR import/export; live migration between storage backends
+- More than 70 familiar commands, including `cat`, `cp`, `grep`, `ls`, `mkdir`,
+  `rm`, `sort`, `tail`, `tee`, and `wc`
+- Persistent environment variables and working directory within a sandbox
+- TAR import and export
+- Live migration between compatible storage backends
+- Typed filesystem errors
+- Node.js and browser support
 
-The built-in `memory()` backend is non-persistent: contents last for the
-lifetime of the JavaScript process or browser tab. Persistent backends
-(OPFS) are in development.
+The built-in `memory()` backend is non-persistent. Its contents last for the
+lifetime of the JavaScript process or browser tab.
 
-## Install
+## Browser support
 
-```sh
-npm install boxsh
-```
-
-`loadEngine()` with no arguments uses the wasm command modules shipped in
-the package. In Node they are read from disk; in browsers they resolve via
-`new URL(..., import.meta.url)`, which bundlers such as Vite serve as
-assets. To load from a CDN or a custom build instead:
+With modern browser bundlers, `loadEngine()` serves the bundled WebAssembly
+modules as assets. To load them from a CDN or another location instead:
 
 ```js
 const engine = await loadEngine({
@@ -64,20 +76,26 @@ const engine = await loadEngine({
 });
 ```
 
-Payload note: the full command module is ~2.8 MB gzipped over the wire
-(~2 MB brotli). It loads once and caches like any static asset.
+The full command module is approximately 2.8 MB over the wire with gzip, or
+2 MB with Brotli. It is loaded once and can be cached like any other static
+asset.
 
 ## Documentation
 
-Shipped inside the package, under `node_modules/boxsh/docs/`:
+- [Getting started](docs/getting-started.md)
+- [JavaScript API](docs/api.md)
+- [Shell syntax and available commands](docs/commands.md)
+- [Recipes and behavior](docs/behavior.md)
 
-- `docs/getting-started.md` — install, Node.js, browser/bundler setup
-- `docs/api.md` — `Filesystem`, `Sandbox`, backends, errors
-- `docs/commands.md` — shell syntax and available commands
-- `docs/behavior.md` — recipes, behavior, and current quirks
+## Current scope
+
+boxsh provides a focused shell language rather than complete Bash
+compatibility. Command flag coverage varies by command, and command output is
+buffered in memory.
 
 ## License
 
-The JavaScript/TypeScript in this package is MIT OR Apache-2.0, at your
-option. The bundled WebAssembly command modules contain compiled third-party
-open-source code; see `THIRD-PARTY-NOTICES.md` for attributions.
+The JavaScript and TypeScript in this package are licensed under either the
+MIT License or Apache License 2.0, at your option. The bundled WebAssembly
+command modules contain compiled third-party open-source code; see
+`THIRD-PARTY-NOTICES.md` for attributions.

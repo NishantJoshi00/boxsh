@@ -45,9 +45,9 @@ The shell provides:
 Changes made by `cd`, `export`, and `unset` persist across later `exec()` calls
 on the same `Sandbox`.
 
-## Commands
+## Available commands
 
-The required command module provides:
+The standard engine provides:
 
 `arch`, `b2sum`, `base32`, `base64`, `basename`, `basenc`, `cat`, `cksum`,
 `comm`, `cp`, `csplit`, `cut`, `date`, `dd`, `dir`, `dircolors`, `dirname`,
@@ -62,10 +62,11 @@ The required command module provides:
 Command and flag coverage is not a promise of complete GNU Coreutils
 compatibility.
 
-## Optional command module
+## Optimized command variants
 
-When `optimizedCommands` is supplied to `loadEngine()`, the following common
-commands use a focused option set:
+The bundled engine includes optimized implementations of several common
+commands. When `optimizedCommands` is supplied to `loadEngine()`, these
+implementations use the following option set:
 
 | Command | Supported forms and options |
 | --- | --- |
@@ -79,8 +80,8 @@ commands use a focused option set:
 | `sort` | `-r` |
 | `grep` | `-c`, `-i`, `-n`, and `-v` |
 
-Omit `optimizedCommands` if the wider option coverage of the required command
-module is more important than the optional fast paths.
+Omit `optimizedCommands` when the wider option coverage of the standard engine
+is more important than the optimized implementations.
 
 ## Exit and output behavior
 
@@ -101,4 +102,4 @@ module is more important than the optional fast paths.
 - The built-in memory backend is cleared when its JavaScript runtime ends.
 
 More edge cases and practical patterns are collected in
-[Recipes, behavior, and current quirks](behavior.md).
+[Recipes and behavior](behavior.md).

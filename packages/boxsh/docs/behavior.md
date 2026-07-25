@@ -1,8 +1,7 @@
-# Recipes, behavior, and current quirks
+# Recipes and behavior
 
-This guide records useful patterns and observable behavior that is too detailed
-for the README. It describes the current `0.0.x` release line and may change
-before a stable release.
+This guide collects practical patterns, edge cases, and observable behavior for
+the current pre-release version of boxsh.
 
 ## Recipes
 
@@ -224,7 +223,7 @@ ordinary scripts predictable but means boxsh is not currently suitable for:
 
 Standard error from commands is collected separately from pipeline data.
 
-## Shell quirks
+## Shell behavior and limitations
 
 ### Variable expansion does not perform Bash word splitting
 

@@ -6,21 +6,27 @@ The public package exports `Filesystem`, `Sandbox`, `loadEngine`, `memory`,
 ## `loadEngine`
 
 ```ts
+type EngineSource =
+  | string
+  | URL
+  | BufferSource
+  | WebAssembly.Module;
+
+function loadEngine(): Promise<BoxshEngine>;
+
 function loadEngine(source: {
-  commands: string | BufferSource | WebAssembly.Module;
-  optimizedCommands?: string | BufferSource | WebAssembly.Module;
+  commands: EngineSource;
+  optimizedCommands?: EngineSource;
 }): Promise<BoxshEngine>;
 ```
 
-Loads the command modules used by a `Sandbox`.
+Loads the command modules used by a `Sandbox`. With no arguments,
+`loadEngine()` loads the modules bundled with boxsh.
 
-- `commands` is required.
-- `optimizedCommands` is optional.
-- A source may be a URL, a buffer, or an already compiled
-  `WebAssembly.Module`.
-
-In Node.js, pass buffers returned by `readFileSync()`. In a browser, pass URLs
-or fetched buffers.
+Pass explicit sources to load the modules from a CDN, a custom build, fetched
+buffers, or already compiled `WebAssembly.Module` objects. The
+`optimizedCommands` source is optional; when omitted, every command runs
+through the standard module.
 
 ## `Filesystem`
 
@@ -293,5 +299,5 @@ normalize("/a/./b/../c"); // "a/c"
 normalize("/");           // ""
 ```
 
-See [Recipes, behavior, and current quirks](behavior.md) for byte ownership,
-archive fidelity, shared filesystem patterns, and other observable details.
+See [Recipes and behavior](behavior.md) for byte ownership, archive fidelity,
+shared filesystem patterns, and other observable details.

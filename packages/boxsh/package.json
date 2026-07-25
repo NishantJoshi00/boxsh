@@ -1,5 +1,5 @@
 {
-  "name": "boxsh",
+  "name": "@boxsh/sandbox",
   "version": "0.1.0",
   "description": "Run shell commands against an isolated virtual filesystem, in the browser or Node. 70+ coreutils compiled to WebAssembly; no host shell, no host filesystem.",
   "license": "MIT OR Apache-2.0",

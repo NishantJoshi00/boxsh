@@ -4,85 +4,32 @@
 
 <h1 align="center">boxsh</h1>
 
-Run shell commands against an isolated virtual filesystem from JavaScript.
-
-```js
-const result = await sandbox.exec("cat /workspace/message.txt | wc -l");
-
-console.log(result.stdout); // "2\n"
-console.log(result.code);   // 0
-```
-
-boxsh gives an application two objects:
-
-- `Filesystem` manages files, directories, archives, and storage backends.
-- `Sandbox` runs shell scripts against that filesystem without using the
-  machine's shell or host filesystem.
-
-It is useful for browser tools, agent workspaces, test fixtures, and other
-applications that need shell-like workflows over application-owned data.
+Run shell commands against an isolated virtual filesystem from JavaScript—in
+Node.js or the browser. No host shell and no host filesystem.
 
 > [!IMPORTANT]
-> boxsh is experimental and is not yet published to npm. APIs may change
-> before the first stable release. Do not treat it as a hardened security
-> boundary.
+> boxsh is experimental and is not yet published to npm. APIs may change before
+> the first stable release. Do not treat boxsh as a hardened security boundary.
 
-## What works
+## Install
 
-- Text and binary file I/O
-- Directories, metadata, rename, and recursive removal
-- Pipes, redirects, conditionals, variables, command substitution, heredocs,
-  and simple loops
-- More than 70 common commands, including `cat`, `cp`, `grep`, `ls`, `mkdir`,
-  `rm`, `sort`, `tail`, `tee`, and `wc`
-- Persistent environment variables and working directory within a sandbox
-- TAR import and export
-- Live migration between compatible storage backends
-- Typed filesystem errors
-- Node.js and browser runtimes
+Once the first npm release is available:
 
-The built-in `memory()` backend is non-persistent. Its contents last for the
-lifetime of the JavaScript process or browser tab.
+```sh
+npm install boxsh
+```
+
+boxsh requires Node.js 20 or newer. To contribute or evaluate the current
+source, see the [contribution guide](docs/CONTRIBUTING.md).
 
 ## Quick start
 
-Node.js 22 and the stable Rust toolchain are used by CI.
-
-```sh
-git clone https://github.com/nishantjoshi/boxsh.git
-cd boxsh
-
-cargo build --release --target wasm32-wasip1 \
-  --manifest-path examples/playground/coreutils-demo/Cargo.toml
-
-cargo build --release --target wasm32-wasip1 \
-  --manifest-path examples/playground/hot-demo/Cargo.toml
-
-npm ci --prefix packages/boxsh
-npm run build --prefix packages/boxsh
-```
-
-Create `example.mjs` in the repository root:
-
 ```js
-import { readFileSync } from "node:fs";
-import {
-  Filesystem,
-  Sandbox,
-  loadEngine,
-  memory,
-} from "./packages/boxsh/dist/index.js";
+import { Filesystem, Sandbox, loadEngine, memory } from "boxsh";
 
-const engine = await loadEngine({
-  commands: readFileSync(
-    "./examples/playground/coreutils-demo/target/wasm32-wasip1/release/coreutils-demo.wasm",
-  ),
-  optimizedCommands: readFileSync(
-    "./examples/playground/hot-demo/target/wasm32-wasip1/release/hot_demo.wasm",
-  ),
-});
-
+const engine = await loadEngine();
 const filesystem = await Filesystem.create({ backend: memory() });
+
 await filesystem.mkdir("/workspace");
 await filesystem.writeFile(
   "/workspace/message.txt",
@@ -96,47 +43,60 @@ const sandbox = new Sandbox({
 });
 
 const result = await sandbox.exec("cat message.txt | wc -l");
+
 console.log(result.stdout); // "2\n"
+console.log(result.code);   // 0
 ```
 
-Run it with:
+`Sandbox.exec()` returns standard output, standard error, and an exit code.
+Non-zero command exits are returned as results rather than thrown as
+exceptions.
 
-```sh
-node example.mjs
-```
+## What boxsh provides
 
-For browser setup and a guided walkthrough, see
-[Getting started](docs/getting-started.md).
+- Text and binary file operations
+- Directories, metadata, rename, and recursive removal
+- Pipes, redirects, conditionals, variables, command substitution, heredocs,
+  and simple loops
+- More than 70 familiar commands, including `cat`, `cp`, `grep`, `ls`, `mkdir`,
+  `rm`, `sort`, `tail`, `tee`, and `wc`
+- Persistent environment variables and working directory within a sandbox
+- TAR import and export
+- Live migration between compatible storage backends
+- Typed filesystem errors
+- Node.js and browser support
+
+The built-in `memory()` backend is non-persistent. Its contents last for the
+lifetime of the JavaScript process or browser tab.
+
+## Browser support
+
+The same API works with modern browser bundlers. `loadEngine()` resolves the
+bundled WebAssembly command modules as assets and fetches them on first use.
+Custom URLs and CDN-hosted modules are also supported.
 
 ## Documentation
 
 - [Getting started](docs/getting-started.md)
 - [JavaScript API](docs/api.md)
 - [Shell syntax and available commands](docs/commands.md)
-- [Recipes, behavior, and current quirks](docs/behavior.md)
+- [Recipes and behavior](docs/behavior.md)
 - [Contributing](docs/CONTRIBUTING.md)
 
 ## Current scope
 
-boxsh currently ships a non-persistent memory backend and a focused shell
-language. It is not a complete Bash implementation, and command flag coverage
-varies by command. See [Shell syntax and available commands](docs/commands.md)
-for the supported surface.
-
-The JavaScript package is currently consumed from a source checkout. npm
-installation instructions will be added when the package is published.
+boxsh provides a focused shell language rather than complete Bash
+compatibility. Command flag coverage varies by command, and command output is
+buffered in memory. See [Shell syntax and available commands](docs/commands.md)
+for the supported surface and current limitations.
 
 ## Help and contributing
 
-Use [GitHub issues](https://github.com/nishantjoshi/boxsh/issues) for bug
+Use [GitHub issues](https://github.com/NishantJoshi00/boxsh/issues) for bug
 reports, feature requests, and questions. Pull requests are welcome; read the
 [contribution guide](docs/CONTRIBUTING.md) before getting started.
 
 ## License
 
-Licensed under either of:
-
-- [Apache License 2.0](LICENSE-APACHE)
-- [MIT License](LICENSE-MIT)
-
-at your option.
+Licensed under either the [Apache License 2.0](LICENSE-APACHE) or the
+[MIT License](LICENSE-MIT), at your option.
