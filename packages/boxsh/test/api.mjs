@@ -4,7 +4,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import assert from "node:assert/strict";
-import { Filesystem, Sandbox, memory, loadEngine, NoboxError } from "../dist/index.js";
+import { Filesystem, Sandbox, memory, loadEngine, BoxshError } from "../dist/index.js";
 
 const p = (rel) => fileURLToPath(new URL(rel, import.meta.url));
 const engine = await loadEngine({
@@ -15,8 +15,8 @@ const engine = await loadEngine({
 // --- Filesystem basics ---
 const fs = await Filesystem.create({ backend: memory() });
 await fs.mkdir("/src/deep", { recursive: true });
-await fs.writeFile("/src/hello.txt", "hello nobox\n");
-assert.equal(await fs.readFile("/src/hello.txt", "utf-8"), "hello nobox\n");
+await fs.writeFile("/src/hello.txt", "hello boxsh\n");
+assert.equal(await fs.readFile("/src/hello.txt", "utf-8"), "hello boxsh\n");
 const entries = await fs.readdir("/src");
 assert.deepEqual(entries.map((e) => `${e.name}:${e.kind}`), ["deep:dir", "hello.txt:file"]);
 assert.equal((await fs.stat("/src/hello.txt")).size, 12);
@@ -24,7 +24,7 @@ await fs.rename("/src/hello.txt", "/src/renamed.txt");
 assert.equal(await fs.exists("/src/hello.txt"), false);
 
 // typed errors
-await assert.rejects(() => fs.readFile("/missing"), (e) => e instanceof NoboxError && e.code === "ENOENT");
+await assert.rejects(() => fs.readFile("/missing"), (e) => e instanceof BoxshError && e.code === "ENOENT");
 
 // binary safety through the public API
 const bin = new Uint8Array(4096).map((_, i) => i & 0xff);
@@ -61,24 +61,24 @@ assert.equal(r.code, 127);
 assert.match(r.stderr, /command not found/);
 
 // grep (hot, native) through the API
-r = await sb.exec("grep -c nobox /src/renamed.txt");
+r = await sb.exec("grep -c boxsh /src/renamed.txt");
 assert.equal(r.stdout.trim(), "1");
 
 // two sandboxes share one filesystem
 const sb2 = new Sandbox({ fs, engine });
 r = await sb2.exec("cat /src/renamed.txt");
-assert.equal(r.stdout, "hello nobox\n");
+assert.equal(r.stdout, "hello boxsh\n");
 
 // --- tar round-trip + switchBackend ---
 const tar = await fs.export();
 const fs2 = await Filesystem.create({ backend: memory() });
 await fs2.import(tar);
-assert.equal(await fs2.readFile("/src/renamed.txt", "utf-8"), "hello nobox\n");
+assert.equal(await fs2.readFile("/src/renamed.txt", "utf-8"), "hello boxsh\n");
 assert.deepEqual(await fs2.readFile("/src/blob.bin"), bin);
 
 await fs.switchBackend(memory());
-assert.equal(await fs.readFile("/src/renamed.txt", "utf-8"), "hello nobox\n");
+assert.equal(await fs.readFile("/src/renamed.txt", "utf-8"), "hello boxsh\n");
 r = await sb.exec("cat /src/renamed.txt"); // sandbox follows the switch
-assert.equal(r.stdout, "hello nobox\n");
+assert.equal(r.stdout, "hello boxsh\n");
 
 console.log("api OK: filesystem, sandbox, heredocs, pipes, tar, switchBackend");

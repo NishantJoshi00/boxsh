@@ -1,4 +1,4 @@
-// nobox vs just-bash vs ZenFS — capability-fair comparison matrix.
+// boxsh vs just-bash vs ZenFS — capability-fair comparison matrix.
 // Each cell: {ms} or "-" (capability gap) or "err". Details under each value.
 import { createRuntime } from "../playground/runner.js";
 
@@ -51,7 +51,7 @@ async function main() {
   rows.innerHTML = "";
 
   // ---- load all three tools ----
-  say("loading nobox…");
+  say("loading boxsh…");
   const buf = await (await fetch("../playground/coreutils-demo/target/wasm32-wasip1/release/coreutils-demo.wasm", { cache: "no-store" })).arrayBuffer();
   const hotBuf = await (await fetch("../playground/hot-demo/target/wasm32-wasip1/release/hot_demo.wasm", { cache: "no-store" })).arrayBuffer();
   const nb = createRuntime(await WebAssembly.compile(buf), await WebAssembly.compile(hotBuf));

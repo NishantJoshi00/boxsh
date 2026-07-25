@@ -1,14 +1,11 @@
 [package]
-name = "nobox-utils"
-description = "Command support for nobox."
+name = "boxsh-core"
+description = "Storage primitives for boxsh."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 
+# D10: zero dependencies, enforced. Do not add any.
 [dependencies]
-nobox-core = { path = "../nobox-core" }
-
-[features]
-default = []

@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for considering a contribution to nobox.
+Thanks for considering a contribution to boxsh.
 
 Bug reports, focused feature proposals, documentation improvements, tests, and
 code changes are welcome. For substantial changes, open an issue first so the
@@ -8,7 +8,7 @@ problem and expected public behavior can be agreed on before implementation.
 
 ## Report an issue
 
-Use [GitHub issues](https://github.com/nishantjoshi/nobox/issues). Include:
+Use [GitHub issues](https://github.com/nishantjoshi/boxsh/issues). Include:
 
 - What you expected
 - What happened instead
@@ -29,9 +29,9 @@ Requirements:
 Clone and install:
 
 ```sh
-git clone https://github.com/nishantjoshi/nobox.git
-cd nobox
-npm ci --prefix packages/nobox
+git clone https://github.com/nishantjoshi/boxsh.git
+cd boxsh
+npm ci --prefix packages/boxsh
 ```
 
 Build the command modules used by the JavaScript end-to-end tests:
@@ -47,8 +47,8 @@ cargo build --release --target wasm32-wasip1 \
 Build and test the JavaScript package:
 
 ```sh
-npm run build --prefix packages/nobox
-npm test --prefix packages/nobox
+npm run build --prefix packages/boxsh
+npm test --prefix packages/boxsh
 ```
 
 Run the Rust checks:
@@ -67,10 +67,10 @@ cargo test --workspace --target wasm32-wasip1
 
 ## Repository layout
 
-- `packages/nobox` — public JavaScript and TypeScript API
-- `crates/nobox-core` — shared storage primitives
-- `crates/nobox-abi` — module-facing exports
-- `crates/nobox-utils` — command support
+- `packages/boxsh` — public JavaScript and TypeScript API
+- `crates/boxsh-core` — shared storage primitives
+- `crates/boxsh-abi` — module-facing exports
+- `crates/boxsh-utils` — command support
 - `examples/playground` — browser shell and benchmarks
 - `examples/comparison` — local browser comparison
 - `docs` — user and contributor documentation

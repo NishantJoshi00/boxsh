@@ -1,6 +1,6 @@
 # Getting started
 
-This guide builds nobox from a source checkout, runs a first script in Node.js,
+This guide builds boxsh from a source checkout, runs a first script in Node.js,
 and starts the browser playground.
 
 ## Requirements
@@ -17,8 +17,8 @@ The repository's `rust-toolchain.toml` installs the `wasm32-wasip1` target,
 Clone the repository:
 
 ```sh
-git clone https://github.com/nishantjoshi/nobox.git
-cd nobox
+git clone https://github.com/nishantjoshi/boxsh.git
+cd boxsh
 ```
 
 Build the command modules:
@@ -34,12 +34,12 @@ cargo build --release --target wasm32-wasip1 \
 Build the JavaScript package:
 
 ```sh
-npm ci --prefix packages/nobox
-npm run build --prefix packages/nobox
+npm ci --prefix packages/boxsh
+npm run build --prefix packages/boxsh
 ```
 
 The generated JavaScript and type declarations are written to
-`packages/nobox/dist`.
+`packages/boxsh/dist`.
 
 ## Run a script in Node.js
 
@@ -52,7 +52,7 @@ import {
   Sandbox,
   loadEngine,
   memory,
-} from "./packages/nobox/dist/index.js";
+} from "./packages/boxsh/dist/index.js";
 
 const engine = await loadEngine({
   commands: readFileSync(
@@ -130,7 +130,7 @@ import {
   Sandbox,
   loadEngine,
   memory,
-} from "/packages/nobox/dist/index.js";
+} from "/packages/boxsh/dist/index.js";
 
 const engine = await loadEngine({
   commands:
@@ -142,7 +142,7 @@ const engine = await loadEngine({
 const filesystem = await Filesystem.create({ backend: memory() });
 const sandbox = new Sandbox({ fs: filesystem, engine });
 
-const result = await sandbox.exec("printf 'hello from nobox\\n'");
+const result = await sandbox.exec("printf 'hello from boxsh\\n'");
 console.log(result.stdout);
 ```
 
@@ -157,5 +157,5 @@ page and allow them under its content security and cross-origin policies.
 - Run the end-to-end test:
 
   ```sh
-  npm test --prefix packages/nobox
+  npm test --prefix packages/boxsh
   ```

@@ -6,6 +6,8 @@
     "lib": ["ES2022", "DOM"],
     "strict": true,
     "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
     "stripInternal": true,
     "outDir": "dist",
     "rootDir": "src"

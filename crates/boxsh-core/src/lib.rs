@@ -1,4 +1,4 @@
-//! Storage primitives for nobox.
+//! Storage primitives for boxsh.
 
 pub mod block;
 

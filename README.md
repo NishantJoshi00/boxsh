@@ -1,6 +1,6 @@
-# nobox
+# boxsh
 
-[![CI](https://github.com/nishantjoshi/nobox/actions/workflows/ci.yml/badge.svg)](https://github.com/nishantjoshi/nobox/actions/workflows/ci.yml)
+[![CI](https://github.com/nishantjoshi/boxsh/actions/workflows/ci.yml/badge.svg)](https://github.com/nishantjoshi/boxsh/actions/workflows/ci.yml)
 
 Run shell commands against an isolated virtual filesystem from JavaScript.
 
@@ -11,7 +11,7 @@ console.log(result.stdout); // "2\n"
 console.log(result.code);   // 0
 ```
 
-nobox gives an application two objects:
+boxsh gives an application two objects:
 
 - `Filesystem` manages files, directories, archives, and storage backends.
 - `Sandbox` runs shell scripts against that filesystem without using the
@@ -21,7 +21,7 @@ It is useful for browser tools, agent workspaces, test fixtures, and other
 applications that need shell-like workflows over application-owned data.
 
 > [!IMPORTANT]
-> nobox is experimental and is not yet published to npm. APIs may change
+> boxsh is experimental and is not yet published to npm. APIs may change
 > before the first stable release. Do not treat it as a hardened security
 > boundary.
 
@@ -47,8 +47,8 @@ lifetime of the JavaScript process or browser tab.
 Node.js 22 and the stable Rust toolchain are used by CI.
 
 ```sh
-git clone https://github.com/nishantjoshi/nobox.git
-cd nobox
+git clone https://github.com/nishantjoshi/boxsh.git
+cd boxsh
 
 cargo build --release --target wasm32-wasip1 \
   --manifest-path examples/playground/coreutils-demo/Cargo.toml
@@ -56,8 +56,8 @@ cargo build --release --target wasm32-wasip1 \
 cargo build --release --target wasm32-wasip1 \
   --manifest-path examples/playground/hot-demo/Cargo.toml
 
-npm ci --prefix packages/nobox
-npm run build --prefix packages/nobox
+npm ci --prefix packages/boxsh
+npm run build --prefix packages/boxsh
 ```
 
 Create `example.mjs` in the repository root:
@@ -69,7 +69,7 @@ import {
   Sandbox,
   loadEngine,
   memory,
-} from "./packages/nobox/dist/index.js";
+} from "./packages/boxsh/dist/index.js";
 
 const engine = await loadEngine({
   commands: readFileSync(
@@ -84,7 +84,7 @@ const filesystem = await Filesystem.create({ backend: memory() });
 await filesystem.mkdir("/workspace");
 await filesystem.writeFile(
   "/workspace/message.txt",
-  "hello\nfrom nobox\n",
+  "hello\nfrom boxsh\n",
 );
 
 const sandbox = new Sandbox({
@@ -116,7 +116,7 @@ For browser setup and a guided walkthrough, see
 
 ## Current scope
 
-nobox currently ships a non-persistent memory backend and a focused shell
+boxsh currently ships a non-persistent memory backend and a focused shell
 language. It is not a complete Bash implementation, and command flag coverage
 varies by command. See [Shell syntax and available commands](docs/commands.md)
 for the supported surface.
@@ -126,7 +126,7 @@ installation instructions will be added when the package is published.
 
 ## Help and contributing
 
-Use [GitHub issues](https://github.com/nishantjoshi/nobox/issues) for bug
+Use [GitHub issues](https://github.com/nishantjoshi/boxsh/issues) for bug
 reports, feature requests, and questions. Pull requests are welcome; read the
 [contribution guide](docs/CONTRIBUTING.md) before getting started.
 

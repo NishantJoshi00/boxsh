@@ -1,5 +1,5 @@
 # Demo multicall binary: all wasip1-portable uutils coreutils in one module.
-# Standalone package (own [workspace]) so the main nobox workspace stays clean.
+# Standalone package (own [workspace]) so the main boxsh workspace stays clean.
 [package]
 name = "coreutils-demo"
 version = "0.0.1"

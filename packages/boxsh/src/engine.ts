@@ -1,7 +1,7 @@
 /** Run supported commands against a storage backend. */
 import type { StorageBackend } from "./backend.js";
 import { normalize } from "./backend.js";
-import { NoboxError } from "./errors.js";
+import { BoxshError } from "./errors.js";
 
 const enc = new TextEncoder();
 
@@ -101,7 +101,7 @@ export function createEngine(
     try {
       return fn();
     } catch (e) {
-      if (e instanceof NoboxError) return ERRNO[e.code] ?? E.INVAL;
+      if (e instanceof BoxshError) return ERRNO[e.code] ?? E.INVAL;
       throw e;
     }
   };

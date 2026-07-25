@@ -1,4 +1,4 @@
-// nobox runner — minimal WASI shim + in-page store, shared by bench.js and
+// boxsh runner — minimal WASI shim + in-page store, shared by bench.js and
 // ../comparison/. (shell.js keeps its own copy with terminal integration.)
 //
 // Two execution temperatures over ONE store and ONE syscall layer:

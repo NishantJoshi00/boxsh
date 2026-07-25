@@ -1,13 +1,13 @@
 [workspace]
 resolver = "3"
-members = ["crates/nobox-core", "crates/nobox-utils", "crates/nobox-abi"]
+members = ["crates/boxsh-core", "crates/boxsh-utils", "crates/boxsh-abi"]
 
 [workspace.package]
 version = "0.0.1"
 edition = "2024"
 rust-version = "1.96"
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/nishantjoshi/nobox"
+repository = "https://github.com/nishantjoshi/boxsh"
 
 [profile.release]
 opt-level = "z"

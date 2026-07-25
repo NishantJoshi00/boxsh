@@ -1,4 +1,4 @@
-// nobox bench — table harness; engine lives in runner.js.
+// boxsh bench — table harness; engine lives in runner.js.
 import { createRuntime } from "./runner.js";
 
 const enc = new TextEncoder();

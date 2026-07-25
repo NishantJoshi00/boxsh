@@ -38,9 +38,9 @@ jobs:
       - name: Unit tests on wasm32-wasip1 (invariant #10)
         run: cargo test --workspace --target wasm32-wasip1
       - name: Build engine artifact
-        run: cargo build --release --target wasm32-wasip1 -p nobox-abi
+        run: cargo build --release --target wasm32-wasip1 -p boxsh-abi
       - name: Loader smoke test through the real artifact
-        working-directory: packages/nobox
+        working-directory: packages/boxsh
         run: |
           npm ci
           npm run build
@@ -50,10 +50,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: cargo build --release --target wasm32-wasip1 -p nobox-abi
+      - run: cargo build --release --target wasm32-wasip1 -p boxsh-abi
       - name: Check gzip size against budget
         run: |
-          gzip -9 -c target/wasm32-wasip1/release/nobox_abi.wasm > nobox_abi.wasm.gz
-          size=$(stat -c%s nobox_abi.wasm.gz)
+          gzip -9 -c target/wasm32-wasip1/release/boxsh_abi.wasm > boxsh_abi.wasm.gz
+          size=$(stat -c%s boxsh_abi.wasm.gz)
           echo "gzip size: $size bytes (budget: $SIZE_BUDGET_BYTES)"
           test "$size" -le "$SIZE_BUDGET_BYTES"

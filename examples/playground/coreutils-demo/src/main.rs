@@ -89,7 +89,7 @@ fn main() {
     std::process::exit(code);
 }
 
-// Native grep — M4 preview (not in coreutils; the real one lands as a nobox
+// Native grep — M4 preview (not in coreutils; the real one lands as a boxsh
 // native command). Byte-safe via regex::bytes. Flags: -c -i -n -v.
 fn grep(args: &[OsString]) -> i32 {
     use std::io::{Read, Write};

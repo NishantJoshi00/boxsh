@@ -42,7 +42,7 @@ changes to `filesystem`.
 
 ### Keep command modules and workspaces separate
 
-A `NoboxEngine` can be reused by multiple sandboxes. Each sandbox may use a
+A `BoxshEngine` can be reused by multiple sandboxes. Each sandbox may use a
 different filesystem:
 
 ```js
@@ -182,7 +182,7 @@ const sandbox = new Sandbox({
 });
 ```
 
-When `env` is omitted, nobox supplies those defaults.
+When `env` is omitted, boxsh supplies those defaults.
 
 ### Working directory
 
@@ -215,7 +215,7 @@ programming errors may still reject a promise.
 
 `exec()` buffers complete standard output and standard error before returning.
 Pipeline stages are also buffered before the next stage runs. This makes
-ordinary scripts predictable but means nobox is not currently suitable for:
+ordinary scripts predictable but means boxsh is not currently suitable for:
 
 - Unbounded streams
 - Long-running interactive programs
@@ -332,5 +332,5 @@ File operations in `StorageBackend` are synchronous. Only `flush()` and
 keep a synchronously accessible working state and perform durability work from
 `flush()`.
 
-Expected filesystem failures should use `NoboxError` so both direct filesystem
+Expected filesystem failures should use `BoxshError` so both direct filesystem
 calls and shell commands receive consistent error codes.

@@ -1,0 +1,57 @@
+{
+  "name": "boxsh",
+  "version": "0.1.0",
+  "description": "Run shell commands against an isolated virtual filesystem, in the browser or Node. 70+ coreutils compiled to WebAssembly; no host shell, no host filesystem.",
+  "license": "MIT OR Apache-2.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "engine",
+    "LICENSE-MIT",
+    "LICENSE-APACHE"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nishantjoshi/boxsh.git",
+    "directory": "packages/boxsh"
+  },
+  "homepage": "https://github.com/nishantjoshi/boxsh#readme",
+  "bugs": "https://github.com/nishantjoshi/boxsh/issues",
+  "keywords": [
+    "sandbox",
+    "shell",
+    "bash",
+    "coreutils",
+    "wasm",
+    "webassembly",
+    "virtual-filesystem",
+    "agents",
+    "browser"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc",
+    "build:engine": "node scripts/build-engine.mjs",
+    "prepack": "npm run build && node scripts/check-engine.mjs",
+    "test": "node test/smoke.mjs && node test/api.mjs",
+    "test:bundled": "node test/bundled.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0"
+  }
+}

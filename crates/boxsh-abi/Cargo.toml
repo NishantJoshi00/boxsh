@@ -1,6 +1,6 @@
 [package]
-name = "nobox-abi"
-description = "WebAssembly loading support for nobox."
+name = "boxsh-abi"
+description = "WebAssembly loading support for boxsh."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -11,5 +11,5 @@ repository.workspace = true
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-nobox-core = { path = "../nobox-core" }
-nobox-utils = { path = "../nobox-utils" }
+boxsh-core = { path = "../boxsh-core" }
+boxsh-utils = { path = "../boxsh-utils" }

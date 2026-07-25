@@ -8,7 +8,7 @@ export class ProcExit extends Error {
   }
 }
 
-export interface NoboxInstance {
+export interface BoxshInstance {
   abiVersion: number;
   alloc(len: number): number;
   free(ptr: number, len: number): void;
@@ -20,14 +20,14 @@ export const SUPPORTED_ABI_VERSION = 1;
 type Exports = {
   memory: WebAssembly.Memory;
   _initialize?: () => void;
-  nobox_abi_version: () => number;
-  nobox_alloc: (len: number) => number;
-  nobox_free: (ptr: number, len: number) => void;
+  boxsh_abi_version: () => number;
+  boxsh_alloc: (len: number) => number;
+  boxsh_free: (ptr: number, len: number) => void;
 };
 
 export async function load(
   wasm: BufferSource | WebAssembly.Module,
-): Promise<NoboxInstance> {
+): Promise<BoxshInstance> {
   const module =
     wasm instanceof WebAssembly.Module ? wasm : await WebAssembly.compile(wasm);
 
@@ -55,7 +55,7 @@ export async function load(
   for (const im of WebAssembly.Module.imports(module)) {
     if (im.module !== WASI_MODULE) {
       throw new Error(
-        `Incompatible nobox engine: unsupported import ${im.module}.${im.name}`,
+        `Incompatible boxsh engine: unsupported import ${im.module}.${im.name}`,
       );
     }
     wasiImports[im.name] = implemented[im.name] ?? (() => ENOSYS);
@@ -68,17 +68,17 @@ export async function load(
   memory = exports.memory;
   exports._initialize?.();
 
-  const abiVersion = exports.nobox_abi_version();
+  const abiVersion = exports.boxsh_abi_version();
   if (abiVersion !== SUPPORTED_ABI_VERSION) {
     throw new Error(
-      `Incompatible nobox engine: expected version ${SUPPORTED_ABI_VERSION}, received ${abiVersion}. Use an engine built for this nobox version.`,
+      `Incompatible boxsh engine: expected version ${SUPPORTED_ABI_VERSION}, received ${abiVersion}. Use an engine built for this boxsh version.`,
     );
   }
 
   return {
     abiVersion,
-    alloc: (len) => exports.nobox_alloc(len),
-    free: (ptr, len) => exports.nobox_free(ptr, len),
+    alloc: (len) => exports.boxsh_alloc(len),
+    free: (ptr, len) => exports.boxsh_free(ptr, len),
     memory: exports.memory,
   };
 }

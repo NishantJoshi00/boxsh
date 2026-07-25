@@ -1,4 +1,4 @@
-/** Storage operations used by a nobox filesystem. Paths have no leading slash; `""` is the root. */
+/** Storage operations used by a boxsh filesystem. Paths have no leading slash; `""` is the root. */
 
 export interface BackendEntry {
   kind: "file" | "dir";

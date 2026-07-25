@@ -1,10 +1,10 @@
-// nobox playground: 73 ported uutils coreutils (one wasm32-wasip1 multicall
+// boxsh playground: 73 ported uutils coreutils (one wasm32-wasip1 multicall
 // module) running against an in-page virtual store, behind a minimal shell
 // line-parser (pipes, redirects, &&/||/;, quotes, $VARS, cd).
 //
 // Honest scope: this parser is a demo stand-in — the real bash interpreter is
 // milestone M3, the real block-based VFS is M1, OPFS persistence is M2. The
-// WASI syscall shim below is the architectural ancestor of nobox's real one.
+// WASI syscall shim below is the architectural ancestor of boxsh's real one.
 
 const enc = new TextEncoder();
 const dec = new TextDecoder();
@@ -43,10 +43,10 @@ const childrenOf = (dir) =>
 // ---------- boot filesystem ----------
 mkdir("");
 for (const d of ["root", "tmp", "etc", "usr", "usr/bin"]) mkdir(d);
-writeFile("etc/motd", "Welcome to the nobox browser playground.\n");
+writeFile("etc/motd", "Welcome to the boxsh browser playground.\n");
 writeFile("etc/os-release",
-  'NAME="nobox"\nVERSION="0.0.1"\nID=nobox\nPRETTY_NAME="nobox 0.0.1"\nHOME_URL="about:blank"\n');
-writeFile("etc/hostname", "nobox\n");
+  'NAME="boxsh"\nVERSION="0.0.1"\nID=boxsh\nPRETTY_NAME="boxsh 0.0.1"\nHOME_URL="about:blank"\n');
+writeFile("etc/hostname", "boxsh\n");
 writeFile("etc/passwd",
   "root:x:0:0:root:/root:/bin/bash\nagent:x:1000:1000:agent:/root:/bin/bash\n");
 writeFile("root/README",
@@ -55,12 +55,12 @@ writeFile("root/README",
 let cwd = "root";
 let lastStatus = 0;
 const env = {
-  HOME: "/root", USER: "agent", LOGNAME: "agent", HOSTNAME: "nobox",
+  HOME: "/root", USER: "agent", LOGNAME: "agent", HOSTNAME: "boxsh",
   PATH: "/usr/local/bin:/usr/bin:/bin", TERM: "xterm-256color",
   SHELL: "/bin/bash", LANG: "C.UTF-8",
 };
 
-// ---------- WASI shim (ancestor of nobox's real syscall layer) ----------
+// ---------- WASI shim (ancestor of boxsh's real syscall layer) ----------
 const E = { OK: 0, BADF: 8, EXIST: 20, INVAL: 28, IO: 29, ISDIR: 31, NOENT: 44, NOSYS: 52, NOTDIR: 54, NOTEMPTY: 55 };
 const FT = { DIR: 3, REG: 4, CHAR: 2 };
 class ProcExit { constructor(code) { this.code = code; } }
@@ -326,7 +326,7 @@ function runWasm(argv, stdinBytes) {
     inst.exports._start();
   } catch (e) {
     if (e instanceof ProcExit) code = e.code;
-    else { stderr.push(enc.encode(`nobox: ${argv[0]}: command failed unexpectedly\n`)); code = 139; }
+    else { stderr.push(enc.encode(`boxsh: ${argv[0]}: command failed unexpectedly\n`)); code = 139; }
   }
   return { out: concat(stdout), err: concat(stderr), code };
 }
@@ -441,7 +441,7 @@ const BUILTINS = {
   uname(args) {
     const a = args.includes("-a");
     const parts = a
-      ? ["Linux", env.HOSTNAME, "6.9.0-nobox", "#1 SMP nobox v0.0.1", "wasm32", "GNU/Linux"]
+      ? ["Linux", env.HOSTNAME, "6.9.0-boxsh", "#1 SMP boxsh v0.0.1", "wasm32", "GNU/Linux"]
       : args.includes("-m") ? ["wasm32"] : args.includes("-n") ? [env.HOSTNAME] : ["Linux"];
     return { out: parts.join(" ") + "\n", code: 0 };
   },
@@ -456,7 +456,7 @@ const BUILTINS = {
   exit: () => ({ out: "logout\n(this is a browser tab — there is no escape)\n", code: 0 }),
   help: () => ({
     out:
-      "nobox playground — shell commands on a virtual filesystem in your browser.\n" +
+      "boxsh playground — shell commands on a virtual filesystem in your browser.\n" +
       "shell features: pipes |   redirects > >> <   heredocs <<EOF   $(cmd)   for..in..done   && || ;   quotes   $VARS   cd/export\n" +
       "commands: " + [...KNOWN].sort().join(" ") + "\n" +
       "builtins: " + Object.keys(BUILTINS).sort().join(" ") + "\n" +
@@ -503,7 +503,7 @@ function execLine(line, heredocBody = null, capture = false) {
   if (fm) {
     let words;
     try { words = expand(expandSubs(fm[2])).split(/\s+/).filter(Boolean); }
-    catch (e) { printErr(`nobox: ${e.message}\n`); lastStatus = 2; return done(); }
+    catch (e) { printErr(`boxsh: ${e.message}\n`); lastStatus = 2; return done(); }
     for (const w of words) {
       env[fm[1]] = w;
       const r = execLine(fm[3], null, capture);
@@ -514,7 +514,7 @@ function execLine(line, heredocBody = null, capture = false) {
   try {
     line = expandSubs(line);
   } catch (e) {
-    printErr(`nobox: ${e.message}\n`);
+    printErr(`boxsh: ${e.message}\n`);
     lastStatus = 2;
     return done();
   }
@@ -522,7 +522,7 @@ function execLine(line, heredocBody = null, capture = false) {
   try {
     chains = parse(tokenize(line));
   } catch (e) {
-    printErr(`nobox: parse error: ${e.message}\n`);
+    printErr(`boxsh: parse error: ${e.message}\n`);
     lastStatus = 2;
     return done();
   }
@@ -545,7 +545,7 @@ function execLine(line, heredocBody = null, capture = false) {
       if (st.in) {
         const p = norm(st.in.startsWith("/") ? st.in : `${cwd}/${st.in}`);
         const entry = store.get(p);
-        if (!entry || entry.dir) { printErr(`nobox: ${st.in}: No such file or directory\n`); lastStatus = 1; break; }
+        if (!entry || entry.dir) { printErr(`boxsh: ${st.in}: No such file or directory\n`); lastStatus = 1; break; }
         data = entry.data;
       }
       let r;
@@ -555,7 +555,7 @@ function execLine(line, heredocBody = null, capture = false) {
       } else if (KNOWN.has(name)) {
         r = runWasm(st.argv, data);
       } else {
-        r = { out: new Uint8Array(0), err: enc.encode(`nobox: ${name}: command not found\n`), code: 127 };
+        r = { out: new Uint8Array(0), err: enc.encode(`boxsh: ${name}: command not found\n`), code: 127 };
       }
       if (r.err.length) printErr(dec.decode(r.err));
       lastStatus = r.code;
@@ -617,7 +617,7 @@ input.addEventListener("keydown", (ev) => {
         const body = { raw: heredoc.body.map((l) => l + "\n").join(""), quoted: heredoc.quoted };
         const cmd = heredoc.line;
         heredoc = null;
-        try { execLine(cmd, body); } catch { printErr("nobox: command failed unexpectedly\n"); }
+        try { execLine(cmd, body); } catch { printErr("boxsh: command failed unexpectedly\n"); }
       } else {
         heredoc.body.push(line);
       }
@@ -638,7 +638,7 @@ input.addEventListener("keydown", (ev) => {
           body: [],
         };
       } else {
-        try { execLine(line); } catch { printErr("nobox: command failed unexpectedly\n"); }
+        try { execLine(line); } catch { printErr("boxsh: command failed unexpectedly\n"); }
       }
     }
     refreshPrompt();
@@ -663,7 +663,7 @@ document.body.addEventListener("click", () => input.focus());
 
 // ---------- boot ----------
 (async () => {
-  print("booting nobox", "dim");
+  print("booting boxsh", "dim");
   try {
     const url = "./coreutils-demo/target/wasm32-wasip1/release/coreutils-demo.wasm";
     const resp = await fetch(url);

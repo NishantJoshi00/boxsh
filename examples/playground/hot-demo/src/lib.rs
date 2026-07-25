@@ -1,4 +1,4 @@
-//! Optimized command implementations for the nobox browser playground.
+//! Optimized command implementations for the boxsh browser playground.
 
 use std::io::{Read, Write};
 

@@ -1,7 +1,7 @@
 # JavaScript API
 
 The public package exports `Filesystem`, `Sandbox`, `loadEngine`, `memory`,
-`NoboxError`, `normalize`, and the related TypeScript types.
+`BoxshError`, `normalize`, and the related TypeScript types.
 
 ## `loadEngine`
 
@@ -9,7 +9,7 @@ The public package exports `Filesystem`, `Sandbox`, `loadEngine`, `memory`,
 function loadEngine(source: {
   commands: string | BufferSource | WebAssembly.Module;
   optimizedCommands?: string | BufferSource | WebAssembly.Module;
-}): Promise<NoboxEngine>;
+}): Promise<BoxshEngine>;
 ```
 
 Loads the command modules used by a `Sandbox`.
@@ -155,7 +155,7 @@ Asks the active backend to make prior writes durable.
 ```ts
 new Sandbox({
   fs: Filesystem;
-  engine: NoboxEngine;
+  engine: BoxshEngine;
   env?: Record<string, string>;
   cwd?: string;
 });
@@ -178,7 +178,7 @@ const sandbox = new Sandbox({
 });
 ```
 
-If `env` is omitted, nobox provides defaults for `HOME`, `USER`, `PATH`,
+If `env` is omitted, boxsh provides defaults for `HOME`, `USER`, `PATH`,
 `TERM`, `SHELL`, and `LANG`.
 
 ### `exec`
@@ -252,17 +252,17 @@ Backend paths are normalized, have no leading slash, and use the empty string
 for the root. File operations are synchronous. `flush()` and `close()` may
 perform asynchronous durability and cleanup work.
 
-Backends should throw `NoboxError` for expected filesystem failures.
+Backends should throw `BoxshError` for expected filesystem failures.
 
 ## Errors
 
-Filesystem operations throw `NoboxError`:
+Filesystem operations throw `BoxshError`:
 
 ```js
 try {
   await filesystem.readFile("/missing.txt");
 } catch (error) {
-  if (error instanceof NoboxError && error.code === "ENOENT") {
+  if (error instanceof BoxshError && error.code === "ENOENT") {
     console.log(`${error.path} does not exist`);
   }
 }

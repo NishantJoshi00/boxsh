@@ -3,20 +3,20 @@
 version = 4
 
 [[package]]
-name = "nobox-abi"
+name = "boxsh-abi"
 version = "0.0.1"
 dependencies = [
- "nobox-core",
- "nobox-utils",
+ "boxsh-core",
+ "boxsh-utils",
 ]
 
 [[package]]
-name = "nobox-core"
+name = "boxsh-core"
 version = "0.0.1"
 
 [[package]]
-name = "nobox-utils"
+name = "boxsh-utils"
 version = "0.0.1"
 dependencies = [
- "nobox-core",
+ "boxsh-core",
 ]

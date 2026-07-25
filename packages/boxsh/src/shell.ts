@@ -254,7 +254,7 @@ export function createShell(
     const captured: Uint8Array[] = [];
     const done = (): LineResult => ({ stdout, stderr, captured: concat(captured) });
     const fail = (msg: string): LineResult => {
-      stderr.push(enc.encode(`nobox: ${msg}\n`));
+      stderr.push(enc.encode(`boxsh: ${msg}\n`));
       session.lastStatus = 2;
       return done();
     };
@@ -304,7 +304,7 @@ export function createShell(
         if (st.in) {
           const e = backendRef.current.read(resolvePath(st.in));
           if (e === undefined) {
-            stderr.push(enc.encode(`nobox: ${st.in}: No such file or directory\n`));
+            stderr.push(enc.encode(`boxsh: ${st.in}: No such file or directory\n`));
             session.lastStatus = 1;
             break;
           }
@@ -319,7 +319,7 @@ export function createShell(
         } else {
           r = {
             out: new Uint8Array(0),
-            err: enc.encode(`nobox: ${name}: command not found\n`),
+            err: enc.encode(`boxsh: ${name}: command not found\n`),
             code: 127,
           };
         }
@@ -331,7 +331,7 @@ export function createShell(
             try {
               backendRef.current.write(resolvePath(st.out), data);
             } catch (e) {
-              stderr.push(enc.encode(`nobox: ${st.out}: ${(e as Error).message}\n`));
+              stderr.push(enc.encode(`boxsh: ${st.out}: ${(e as Error).message}\n`));
               session.lastStatus = 1;
             }
           } else if (capture) {

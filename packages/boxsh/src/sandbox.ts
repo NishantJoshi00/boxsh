@@ -7,7 +7,7 @@ const dec = new TextDecoder();
 declare const engineBrand: unique symbol;
 
 /** Command modules ready to use with a Sandbox. */
-export interface NoboxEngine {
+export interface BoxshEngine {
   readonly [engineBrand]: true;
 }
 
@@ -21,23 +21,32 @@ export interface ExecOutput {
 
 export interface SandboxOptions {
   fs: Filesystem;
-  engine: NoboxEngine;
+  engine: BoxshEngine;
   env?: Record<string, string>;
   cwd?: string;
 }
 
-/** Load command modules from URLs or buffers. */
-export async function loadEngine(source: {
-  commands: string | BufferSource | WebAssembly.Module;
-  optimizedCommands?: string | BufferSource | WebAssembly.Module;
-}): Promise<NoboxEngine> {
-  const compile = async (
-    s: string | BufferSource | WebAssembly.Module,
-  ): Promise<WebAssembly.Module> => {
+type EngineSource = string | URL | BufferSource | WebAssembly.Module;
+
+/**
+ * Load command modules. With no arguments, loads the modules bundled with
+ * the package (in Node directly from disk; in browsers via fetch — bundlers
+ * that understand `new URL(..., import.meta.url)` serve them as assets).
+ * Pass explicit URLs or buffers to load from a CDN or custom build instead.
+ */
+export async function loadEngine(source?: {
+  commands: EngineSource;
+  optimizedCommands?: EngineSource;
+}): Promise<BoxshEngine> {
+  const compile = async (s: EngineSource): Promise<WebAssembly.Module> => {
     if (s instanceof WebAssembly.Module) return s;
-    if (typeof s === "string") {
+    if (typeof s === "string" || s instanceof URL) {
+      if (s instanceof URL && s.protocol === "file:") {
+        const { readFile } = await import("node:fs/promises");
+        return WebAssembly.compile(await readFile(s));
+      }
       const resp = await fetch(s);
-      if (!resp.ok) throw new Error(`Unable to load nobox commands from ${s} (HTTP ${resp.status}).`);
+      if (!resp.ok) throw new Error(`Unable to load boxsh commands from ${s} (HTTP ${resp.status}).`);
       try {
         return await WebAssembly.compileStreaming(resp.clone());
       } catch {
@@ -46,13 +55,17 @@ export async function loadEngine(source: {
     }
     return WebAssembly.compile(s);
   };
+  const src = source ?? {
+    commands: new URL("../engine/commands.wasm", import.meta.url),
+    optimizedCommands: new URL("../engine/commands-optimized.wasm", import.meta.url),
+  };
   return {
-    cold: await compile(source.commands),
+    cold: await compile(src.commands),
     hot:
-      source.optimizedCommands !== undefined
-        ? await compile(source.optimizedCommands)
+      src.optimizedCommands !== undefined
+        ? await compile(src.optimizedCommands)
         : undefined,
-  } as unknown as NoboxEngine;
+  } as unknown as BoxshEngine;
 }
 
 export class Sandbox {
