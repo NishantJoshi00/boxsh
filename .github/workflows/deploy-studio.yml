@@ -19,14 +19,30 @@ jobs:
         with:
           node-version: 22
       - run: rustup target add wasm32-wasip1
+      # Pinned: apt's binaryen 117 emits stale draft type encodings under
+      # --all-features that browsers reject ("bad type" on engine load).
       - name: Install binaryen (wasm-opt)
-        run: sudo apt-get update && sudo apt-get install -y binaryen
+        run: |
+          curl -sSL https://github.com/WebAssembly/binaryen/releases/download/version_131/binaryen-version_131-x86_64-linux.tar.gz | tar xz -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/binaryen-version_131/bin" >> "$GITHUB_PATH"
       - name: Build boxsh package and engine
         working-directory: packages/boxsh
         run: |
           npm ci
           npm run build
           npm run build:engine
+      - name: Validate engine modules
+        working-directory: packages/boxsh
+        run: |
+          node -e '
+            const fs = require("fs");
+            for (const f of ["engine/commands.wasm", "engine/commands-optimized.wasm"]) {
+              if (!WebAssembly.validate(fs.readFileSync(f))) {
+                console.error(`invalid wasm: ${f}`);
+                process.exit(1);
+              }
+              console.log(`valid: ${f}`);
+            }'
       - name: Build studio
         working-directory: studio
         env:
