@@ -14,6 +14,7 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
+import { Kbd } from "@/components/ui/kbd";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Box,
@@ -29,6 +30,7 @@ import {
 import { useChat } from "@ai-sdk/react";
 import { Spinner } from "@/components/ui/spinner";
 import { useStudio, type AgentSession } from "@/lib/store";
+import { sessionShortcutKeys, shortcut } from "@/lib/shortcuts";
 import { chatFor, disposeChat } from "@/lib/agent/chats";
 
 /** Provider icon that turns into a spinner while the session's agent runs. */
@@ -89,7 +91,7 @@ export function AppSidebar() {
                   No sessions yet.
                 </p>
               )}
-              {sessions.map((s) => (
+              {sessions.map((s, index) => (
                 <SidebarMenuItem key={s.id}>
                   <SidebarMenuButton
                     isActive={view.kind === "session" && view.sessionId === s.id}
@@ -97,6 +99,11 @@ export function AppSidebar() {
                   >
                     <SessionIcon session={s} />
                     <span className="truncate">{s.title}</span>
+                    {index < 9 && (
+                      <Kbd className="ml-auto h-4 min-w-0 bg-transparent px-0 text-[10px] opacity-60 group-data-[collapsible=icon]:hidden">
+                        {sessionShortcutKeys(index).join(" ")}
+                      </Kbd>
+                    )}
                   </SidebarMenuButton>
                   <SidebarMenuAction
                     showOnHover
@@ -125,6 +132,9 @@ export function AppSidebar() {
                 >
                   <SquareTerminal />
                   Terminal
+                  <Kbd className="ml-auto h-4 min-w-0 bg-transparent px-0 text-[10px] opacity-60 group-data-[collapsible=icon]:hidden">
+                    {shortcut("terminal").keys.join(" ")}
+                  </Kbd>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
@@ -134,6 +144,9 @@ export function AppSidebar() {
                 >
                   <Folder />
                   Files
+                  <Kbd className="ml-auto h-4 min-w-0 bg-transparent px-0 text-[10px] opacity-60 group-data-[collapsible=icon]:hidden">
+                    {shortcut("files").keys.join(" ")}
+                  </Kbd>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>

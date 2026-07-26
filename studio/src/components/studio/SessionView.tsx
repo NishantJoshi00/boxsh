@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useChat } from "@ai-sdk/react";
 import { Streamdown } from "streamdown";
 import { code } from "@streamdown/code";
@@ -13,13 +13,6 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   ArrowUp,
   Brain,
   ChevronRight,
@@ -32,10 +25,13 @@ import { chatFor } from "@/lib/agent/chats";
 import { onFsChanged } from "@/lib/events";
 import { sharedFs } from "@/lib/sandbox";
 import { discoverInstalledSkills, type InstalledSkill } from "@/lib/skills";
-import { PROVIDER_LABELS, listModels, type Provider } from "@/lib/models";
+import { PROVIDER_LABELS } from "@/lib/models";
 import { useStudio, type AgentSession } from "@/lib/store";
 import { cn } from "@/lib/utils";
+import { ModelPickerDialog } from "./ModelPickerDialog";
 import { ToolGroup, type ToolPartLike } from "./ToolCard";
+
+const assetBase = import.meta.env.BASE_URL.replace(/\/?$/, "/");
 
 type Segment =
   | { kind: "part"; part: { type: string }; key: number }
@@ -56,93 +52,6 @@ function segment(parts: readonly { type: string }[]): Segment[] {
     }
   });
   return out;
-}
-
-function ProviderPicker({ session }: { session: AgentSession }) {
-  const setSessionProvider = useStudio((st) => st.setSessionProvider);
-  return (
-    <Select
-      value={session.provider}
-      onValueChange={(v) => v && setSessionProvider(session.id, v as Provider)}
-    >
-      <SelectTrigger
-        size="sm"
-        className="h-7 gap-1 border-0 bg-transparent dark:bg-transparent shadow-none text-xs text-muted-foreground hover:text-foreground"
-        aria-label="Provider"
-      >
-        <SelectValue>{PROVIDER_LABELS[session.provider]}</SelectValue>
-      </SelectTrigger>
-      <SelectContent>
-        {(Object.keys(PROVIDER_LABELS) as Provider[]).map((p) => (
-          <SelectItem key={p} value={p}>
-            {PROVIDER_LABELS[p]}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  );
-}
-
-function ModelPicker({ session }: { session: AgentSession }) {
-  const key = useStudio((st) => st.keys[session.provider]);
-  const setSessionModel = useStudio((st) => st.setSessionModel);
-  const [models, setModels] = useState<string[] | null>(null);
-  const [modelError, setModelError] = useState(false);
-  const request = useRef(0);
-
-  const refresh = useCallback(async (force = false) => {
-    if (!key) {
-      setModels(null);
-      setModelError(false);
-      return;
-    }
-    const id = ++request.current;
-    try {
-      const found = await listModels(session.provider, key, force);
-      if (request.current === id) {
-        setModels(found);
-        setModelError(false);
-      }
-    } catch {
-      if (request.current === id) setModelError(true);
-    }
-  }, [key, session.provider]);
-
-  useEffect(() => {
-    void refresh();
-    return () => {
-      request.current++;
-    };
-  }, [refresh]);
-
-  const options = models?.includes(session.model)
-    ? models
-    : [session.model, ...(models ?? [])];
-
-  return (
-    <Select
-      value={session.model}
-      onValueChange={(v) => v && setSessionModel(session.id, v)}
-      onOpenChange={(open) => {
-        if (open && key && (models === null || modelError)) void refresh(true);
-      }}
-    >
-      <SelectTrigger
-        size="sm"
-        className="h-7 gap-1 border-0 bg-transparent dark:bg-transparent shadow-none text-xs text-muted-foreground hover:text-foreground"
-        aria-label="Model"
-      >
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent>
-        {options.map((id) => (
-          <SelectItem key={id} value={id}>
-            {id}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  );
 }
 
 function SkillsLoaded() {
@@ -256,6 +165,21 @@ export function SessionView({ session }: { session: AgentSession }) {
             </Alert>
           )}
 
+          {messages.length === 0 && (
+            <div className="grid min-h-[55vh] place-content-center justify-items-center gap-4 py-8">
+              <img
+                src={`${assetBase}brand/box-dither.png`}
+                alt=""
+                aria-hidden="true"
+                className="w-full max-w-72 select-none object-contain opacity-60 invert dark:invert-0"
+                draggable={false}
+              />
+              <h2 className="text-center text-[34.03px] font-medium leading-none tracking-tight text-muted-foreground">
+                What are we building?
+              </h2>
+            </div>
+          )}
+
           {messages.map((m) => (
             <div key={m.id} className="grid gap-2">
               {m.role === "user" ? (
@@ -332,6 +256,7 @@ export function SessionView({ session }: { session: AgentSession }) {
         <div className="mx-auto max-w-3xl p-3">
           <div className="grid grid-cols-[minmax(0,1fr)_2rem] items-center gap-2 rounded-[1.75rem] bg-muted/60 py-2 pl-4 pr-2 transition-colors focus-within:bg-muted/80">
             <Textarea
+              id={`composer-${session.id}`}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => {
@@ -367,8 +292,7 @@ export function SessionView({ session }: { session: AgentSession }) {
             )}
           </div>
           <div className="mt-1 flex items-center">
-            <ProviderPicker session={session} />
-            <ModelPicker session={session} />
+            <ModelPickerDialog session={session} />
             <SkillsLoaded />
           </div>
         </div>

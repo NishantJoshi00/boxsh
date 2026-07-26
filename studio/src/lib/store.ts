@@ -25,6 +25,7 @@ interface StudioState {
   lastModels: Record<Provider, string>;
   keysOpen: boolean;
   skillsOpen: boolean;
+  modelPickerSessionId: string | null;
 
   setSandboxName: (name: string) => void;
   addSession: () => string;
@@ -36,6 +37,7 @@ interface StudioState {
   setKey: (provider: Provider, key: string) => void;
   setKeysOpen: (open: boolean) => void;
   setSkillsOpen: (open: boolean) => void;
+  setModelPickerSessionId: (sessionId: string | null) => void;
 }
 
 let counter = 0;
@@ -52,6 +54,7 @@ export const useStudio = create<StudioState>()(
       lastModels: { ...DEFAULT_MODELS },
       keysOpen: false,
       skillsOpen: false,
+      modelPickerSessionId: null,
 
       setSandboxName: (sandboxName) => set({ sandboxName }),
       addSession: () => {
@@ -107,6 +110,7 @@ export const useStudio = create<StudioState>()(
         set((st) => ({ keys: { ...st.keys, [provider]: key } })),
       setKeysOpen: (keysOpen) => set({ keysOpen }),
       setSkillsOpen: (skillsOpen) => set({ skillsOpen }),
+      setModelPickerSessionId: (modelPickerSessionId) => set({ modelPickerSessionId }),
     }),
     {
       name: "boxsh-studio",

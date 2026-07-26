@@ -25,6 +25,7 @@ let nextTermId = 1;
 function startRepl(term: Terminal, onExit: () => void) {
   const sessionReady = createSession();
   let buf = "";
+  let lastCommand = "";
   let running = false;
 
   const prompt = async () => {
@@ -35,6 +36,7 @@ function startRepl(term: Terminal, onExit: () => void) {
   const run = async () => {
     const script = buf;
     buf = "";
+    if (script.trim()) lastCommand = script;
     if (script.trim() === "exit") {
       term.write("\r\n");
       onExit();
@@ -85,6 +87,13 @@ function startRepl(term: Terminal, onExit: () => void) {
 
   term.onData((data) => {
     if (running) return;
+    if (data === "\x1b[A" || data === "\x1bOA") {
+      if (!lastCommand) return;
+      term.write("\b \b".repeat(buf.length));
+      buf = lastCommand;
+      term.write(buf);
+      return;
+    }
     const chars = data.replace(/\r\n/g, "\r");
     for (const ch of chars) {
       if (ch === "\r" || ch === "\n") {
@@ -119,7 +128,7 @@ function getInstance(id: number): TermInstance {
       convertEol: true,
       cursorBlink: true,
       fontSize: 13,
-      fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+      fontFamily: '"SFMono-Regular", "SF Mono", ui-monospace, Menlo, Monaco, monospace',
       theme: {
         background: "#00000000",
         foreground: "#d4d4d8",

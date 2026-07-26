@@ -5,6 +5,11 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/
 import { Spinner } from "@/components/ui/spinner";
 import { CircleAlert } from "lucide-react";
 import { initSandbox } from "@/lib/sandbox";
+import {
+  matchesGlobalHelpShortcut,
+  matchesShortcut,
+  sessionShortcutIndex,
+} from "@/lib/shortcuts";
 import { useStudio } from "@/lib/store";
 import { AppSidebar } from "./AppSidebar";
 import { SessionView } from "./SessionView";
@@ -13,6 +18,8 @@ import { FilesView } from "./FilesView";
 import { KeysDialog } from "./KeysDialog";
 import { EmptyState } from "./EmptyState";
 import { SkillsDialog } from "./SkillsDialog";
+import { ShortcutsDialog } from "./ShortcutsDialog";
+import { BrowserDisclaimerDialog } from "./BrowserDisclaimerDialog";
 import { Toaster } from "@/components/ui/sonner";
 
 function FloatingTrigger() {
@@ -44,12 +51,78 @@ function Workspace() {
 
 export default function Studio() {
   const [engine, setEngine] = useState<"loading" | "ready" | string>("loading");
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
 
   useEffect(() => {
     initSandbox().then(
       () => setEngine("ready"),
       (err) => setEngine(err instanceof Error ? err.message : String(err)),
     );
+  }, []);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (matchesGlobalHelpShortcut(event)) {
+        event.preventDefault();
+        setShortcutsOpen(true);
+        return;
+      }
+
+      const target = event.target;
+      const editable =
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        (target instanceof HTMLElement && target.isContentEditable);
+
+      if (editable && event.code === "Escape") {
+        target.blur();
+        return;
+      }
+      if (editable) return;
+
+      if (matchesShortcut(event, "shortcuts")) {
+        event.preventDefault();
+        setShortcutsOpen(true);
+        return;
+      }
+
+      const studio = useStudio.getState();
+      const sessionIndex = sessionShortcutIndex(event);
+      const session = sessionIndex === null ? undefined : studio.sessions[sessionIndex];
+      if (session) {
+        event.preventDefault();
+        studio.setView({ kind: "session", sessionId: session.id });
+      } else if (matchesShortcut(event, "new-session")) {
+        event.preventDefault();
+        studio.addSession();
+      } else if (matchesShortcut(event, "terminal")) {
+        event.preventDefault();
+        studio.setView({ kind: "terminal" });
+      } else if (matchesShortcut(event, "files")) {
+        event.preventDefault();
+        studio.setView({ kind: "files" });
+      } else if (matchesShortcut(event, "api-keys")) {
+        event.preventDefault();
+        studio.setKeysOpen(true);
+      } else if (matchesShortcut(event, "skills")) {
+        event.preventDefault();
+        studio.setSkillsOpen(true);
+      } else if (
+        matchesShortcut(event, "model-picker") &&
+        studio.view.kind === "session"
+      ) {
+        event.preventDefault();
+        studio.setModelPickerSessionId(studio.view.sessionId);
+      } else if (
+        matchesShortcut(event, "composer") &&
+        studio.view.kind === "session"
+      ) {
+        event.preventDefault();
+        document.getElementById(`composer-${studio.view.sessionId}`)?.focus();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
   if (engine === "loading") {
@@ -84,6 +157,8 @@ export default function Studio() {
       <Workspace />
       <KeysDialog />
       <SkillsDialog />
+      <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
+      <BrowserDisclaimerDialog />
       <Toaster />
     </SidebarProvider>
   );
