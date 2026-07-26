@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { emitFsChanged } from "@/lib/events";
 import { sharedFs } from "@/lib/sandbox";
 import {
@@ -269,11 +270,12 @@ export function SkillsDialog() {
                     No SKILL.md files found under this path.
                   </p>
                 )}
-                {preview.candidates.map((candidate) => {
+                {preview.candidates.map((candidate, index) => {
                   const disabled = !candidate.valid;
                   const reason = candidate.issues[0]?.message;
+                  const checkboxId = `skill-candidate-${index}`;
                   return (
-                    <label
+                    <div
                       key={candidate.id}
                       className={cn(
                         "flex items-start gap-2 rounded-md px-1.5 py-1.5 text-sm",
@@ -283,6 +285,7 @@ export function SkillsDialog() {
                       )}
                     >
                       <Checkbox
+                        id={checkboxId}
                         className="mt-0.5"
                         checked={selected.has(candidate.id)}
                         disabled={disabled}
@@ -295,22 +298,30 @@ export function SkillsDialog() {
                           });
                         }}
                       />
-                      <span className="min-w-0">
-                        <span className="flex items-center gap-1.5">
-                          <span className="truncate">
-                            {candidate.metadata?.name ?? candidate.sourceDirectory}
-                          </span>
-                          {candidate.replacing && (
-                            <span className="text-[11px] text-muted-foreground">
-                              replaces existing
+                      <Label
+                        htmlFor={checkboxId}
+                        className={cn(
+                          "min-w-0 flex-1 cursor-pointer items-start font-normal leading-normal",
+                          disabled && "cursor-not-allowed",
+                        )}
+                      >
+                        <span className="min-w-0">
+                          <span className="flex items-center gap-1.5">
+                            <span className="truncate">
+                              {candidate.metadata?.name ?? candidate.sourceDirectory}
                             </span>
-                          )}
+                            {candidate.replacing && (
+                              <span className="text-[11px] text-muted-foreground">
+                                replaces existing
+                              </span>
+                            )}
+                          </span>
+                          <span className="block truncate text-xs text-muted-foreground">
+                            {reason ?? candidate.metadata?.description}
+                          </span>
                         </span>
-                        <span className="block truncate text-xs text-muted-foreground">
-                          {reason ?? candidate.metadata?.description}
-                        </span>
-                      </span>
-                    </label>
+                      </Label>
+                    </div>
                   );
                 })}
               </div>

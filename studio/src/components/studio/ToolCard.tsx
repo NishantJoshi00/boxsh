@@ -1,5 +1,10 @@
 import { useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { Spinner } from "@/components/ui/spinner";
 
 export interface ToolPartLike {
@@ -80,10 +85,9 @@ export function ToolGroup({ parts }: { parts: ToolPartLike[] }) {
   const Chevron = open ? ChevronDown : ChevronRight;
 
   return (
-    <div>
-      <button
+    <Collapsible open={open} onOpenChange={setUserOpen}>
+      <CollapsibleTrigger
         className="group flex items-center gap-1.5 py-0.5 text-left text-xs text-foreground/70 hover:text-foreground"
-        onClick={() => setUserOpen(!open)}
       >
         <span>{describe(parts)}</span>
         {failed > 0 && !running && (
@@ -94,15 +98,13 @@ export function ToolGroup({ parts }: { parts: ToolPartLike[] }) {
         ) : (
           <Chevron className="size-3 shrink-0 opacity-40 group-hover:opacity-80" />
         )}
-      </button>
-      {open && (
-        <div className="ml-1 border-l border-border/60 pl-3">
-          {parts.map((part, i) => (
-            <ToolRow key={i} part={part} />
-          ))}
-        </div>
-      )}
-    </div>
+      </CollapsibleTrigger>
+      <CollapsibleContent className="ml-1 border-l border-border/60 pl-3">
+        {parts.map((part, i) => (
+          <ToolRow key={i} part={part} />
+        ))}
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
 
@@ -118,10 +120,9 @@ export function ToolRow({ part }: { part: ToolPartLike }) {
   const Chevron = open ? ChevronDown : ChevronRight;
 
   return (
-    <div className="text-muted-foreground">
-      <button
+    <Collapsible open={open} onOpenChange={setOpen} className="text-muted-foreground">
+      <CollapsibleTrigger
         className="group flex w-full items-center gap-1.5 py-0.5 text-left text-xs"
-        onClick={() => setOpen((o) => !o)}
       >
         <span className="shrink-0 font-medium">{toolName}</span>
         <span className="truncate font-mono text-muted-foreground/60">
@@ -139,30 +140,27 @@ export function ToolRow({ part }: { part: ToolPartLike }) {
             <Chevron className="size-3 shrink-0 opacity-40 group-hover:opacity-80" />
           </>
         )}
-      </button>
-      {open && (
-        <div className="mb-1 ml-1 grid gap-2 border-l border-border/60 py-1 pl-3">
-          {toolName === "bash" ? (
-            <OutputBlock
-              label="script"
-              text={String((part.input as { script?: string } | undefined)?.script ?? "")}
-            />
-          ) : (
-            <OutputBlock label="input" text={JSON.stringify(part.input, null, 2)} />
-          )}
-          {part.errorText && <OutputBlock label="error" text={part.errorText} />}
-          {output?.stdout ? <OutputBlock label="stdout" text={output.stdout} /> : null}
-          {output?.stderr ? <OutputBlock label="stderr" text={output.stderr} /> : null}
-          {output?.content !== undefined && (
-            <OutputBlock label="content" text={output.content ?? ""} />
-          )}
-          {output?.error && <OutputBlock label="result" text={output.error} />}
-          {!running && !output && !part.errorText && (
-            <span className="text-xs text-muted-foreground/60">No output.</span>
-          )}
-        </div>
-      )}
-    </div>
+      </CollapsibleTrigger>
+      <CollapsibleContent className="mb-1 ml-1 grid gap-2 border-l border-border/60 py-1 pl-3">
+        {toolName === "bash" ? (
+          <OutputBlock
+            label="script"
+            text={String((part.input as { script?: string } | undefined)?.script ?? "")}
+          />
+        ) : (
+          <OutputBlock label="input" text={JSON.stringify(part.input, null, 2)} />
+        )}
+        {part.errorText && <OutputBlock label="error" text={part.errorText} />}
+        {output?.stdout ? <OutputBlock label="stdout" text={output.stdout} /> : null}
+        {output?.stderr ? <OutputBlock label="stderr" text={output.stderr} /> : null}
+        {output?.content !== undefined && (
+          <OutputBlock label="content" text={output.content ?? ""} />
+        )}
+        {output?.error && <OutputBlock label="result" text={output.error} />}
+        {!running && !output && !part.errorText && (
+          <span className="text-xs text-muted-foreground/60">No output.</span>
+        )}
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
-

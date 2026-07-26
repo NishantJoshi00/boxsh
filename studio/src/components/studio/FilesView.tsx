@@ -26,6 +26,11 @@ import {
   Upload,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -105,34 +110,43 @@ function DirRow({
 }) {
   const [open, setOpen] = useState(false);
   const isDir = entry.kind === "dir";
+  const rowClassName = cn(
+    "flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-sm text-left hover:bg-accent/50",
+    selected === path && "bg-accent text-accent-foreground",
+  );
+  const rowStyle = { paddingLeft: `${depth * 14 + 8}px` };
 
-  return (
-    <>
+  if (!isDir) {
+    return (
       <button
-        className={cn(
-          "flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-sm text-left hover:bg-accent/50",
-          selected === path && "bg-accent text-accent-foreground",
-        )}
-        style={{ paddingLeft: `${depth * 14 + 8}px` }}
-        onClick={() => (isDir ? setOpen((o) => !o) : onSelect(path))}
+        type="button"
+        className={rowClassName}
+        style={rowStyle}
+        onClick={() => onSelect(path)}
       >
-        {isDir ? (
-          <>
-            <ChevronRight
-              className={cn("size-3.5 shrink-0 text-muted-foreground transition-transform", open && "rotate-90")}
-            />
-            {open ? (
-              <FolderOpen className="size-4 shrink-0 text-muted-foreground" />
-            ) : (
-              <Folder className="size-4 shrink-0 text-muted-foreground" />
-            )}
-          </>
-        ) : (
-          <File className="size-4 shrink-0 text-muted-foreground ml-[1.125rem]" />
-        )}
+        <File className="size-4 shrink-0 text-muted-foreground ml-[1.125rem]" />
         <span className="truncate">{entry.name}</span>
       </button>
-      {isDir && open && (
+    );
+  }
+
+  return (
+    <Collapsible open={open} onOpenChange={setOpen}>
+      <CollapsibleTrigger className={rowClassName} style={rowStyle}>
+        <ChevronRight
+          className={cn(
+            "size-3.5 shrink-0 text-muted-foreground transition-transform",
+            open && "rotate-90",
+          )}
+        />
+        {open ? (
+          <FolderOpen className="size-4 shrink-0 text-muted-foreground" />
+        ) : (
+          <Folder className="size-4 shrink-0 text-muted-foreground" />
+        )}
+        <span className="truncate">{entry.name}</span>
+      </CollapsibleTrigger>
+      <CollapsibleContent>
         <DirChildren
           path={path}
           depth={depth + 1}
@@ -140,8 +154,8 @@ function DirRow({
           selected={selected}
           onSelect={onSelect}
         />
-      )}
-    </>
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
 

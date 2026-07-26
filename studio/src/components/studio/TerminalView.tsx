@@ -3,6 +3,7 @@ import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, X } from "lucide-react";
 import { createSession } from "@/lib/sandbox";
 import { emitFsChanged } from "@/lib/events";
@@ -206,41 +207,53 @@ export function TerminalView({ hidden }: { hidden: boolean }) {
   }, []);
 
   return (
-    <div className={cn("flex h-full flex-col", hidden && "hidden")}>
+    <Tabs
+      value={active === null ? null : String(active)}
+      onValueChange={(value) => setActive(Number(value))}
+      className={cn("h-full gap-0", hidden && "hidden")}
+    >
       <div className="flex items-center gap-1 border-b px-2 py-1.5 pl-12">
-        {terms.map((id, i) => (
-          <div
-            key={id}
-            className={cn(
-              "group flex items-center gap-1 rounded-md border px-2 py-1 text-xs cursor-pointer select-none",
-              active === id
-                ? "bg-accent text-accent-foreground"
-                : "text-muted-foreground hover:bg-accent/50",
-            )}
-            onClick={() => setActive(id)}
-          >
-            Terminal {i + 1}
-            <button
-              aria-label="Close terminal"
-              className="opacity-50 hover:opacity-100 hover:text-foreground"
-              onClick={(e) => {
-                e.stopPropagation();
-                closeTerm(id);
-              }}
+        <TabsList variant="line" className="h-auto gap-1 bg-transparent p-0">
+          {terms.map((id, i) => (
+            <div
+              key={id}
+              className={cn(
+                "group flex items-center gap-1 rounded-md border px-2 py-1",
+                active === id
+                  ? "bg-accent text-accent-foreground"
+                  : "text-muted-foreground hover:bg-accent/50",
+              )}
             >
-              <X className="size-3" />
-            </button>
-          </div>
-        ))}
+              <TabsTrigger
+                value={String(id)}
+                className="h-auto flex-none rounded-none border-0 bg-transparent p-0 text-xs font-normal shadow-none after:hidden focus-visible:ring-0"
+              >
+                Terminal {i + 1}
+              </TabsTrigger>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-xs"
+                aria-label={`Close terminal ${i + 1}`}
+                className="size-4 opacity-50 hover:bg-transparent hover:opacity-100"
+                onClick={() => closeTerm(id)}
+              >
+                <X className="size-3" />
+              </Button>
+            </div>
+          ))}
+        </TabsList>
         <Button variant="ghost" size="icon-sm" aria-label="New terminal" onClick={addTerm}>
           <Plus />
         </Button>
       </div>
       <div className="flex-1 min-h-0 bg-background">
         {terms.map((id) => (
-          <TermMount key={id} id={id} active={!hidden && active === id} />
+          <TabsContent key={id} value={String(id)} keepMounted className="h-full">
+            <TermMount id={id} active={!hidden && active === id} />
+          </TabsContent>
         ))}
       </div>
-    </div>
+    </Tabs>
   );
 }
