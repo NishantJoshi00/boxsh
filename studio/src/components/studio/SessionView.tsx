@@ -131,11 +131,26 @@ export function SessionView({ session }: { session: AgentSession }) {
   const setKeysOpen = useStudio((st) => st.setKeysOpen);
   const setSessionTitle = useStudio((st) => st.setSessionTitle);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const scrollRootRef = useRef<HTMLDivElement>(null);
+  const pinnedRef = useRef(true);
 
   const busy = status === "submitted" || status === "streaming";
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ block: "end" });
+    const viewport = scrollRootRef.current?.querySelector<HTMLElement>(
+      '[data-slot="scroll-area-viewport"]',
+    );
+    if (!viewport) return;
+    const onScroll = () => {
+      pinnedRef.current =
+        viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < 40;
+    };
+    viewport.addEventListener("scroll", onScroll, { passive: true });
+    return () => viewport.removeEventListener("scroll", onScroll);
+  }, []);
+
+  useEffect(() => {
+    if (pinnedRef.current) bottomRef.current?.scrollIntoView({ block: "end" });
   }, [messages, status]);
 
   const send = () => {
@@ -144,13 +159,14 @@ export function SessionView({ session }: { session: AgentSession }) {
     if (messages.length === 0) {
       setSessionTitle(session.id, text.length > 42 ? text.slice(0, 42) + "…" : text);
     }
+    pinnedRef.current = true;
     void sendMessage({ text });
     setInput("");
   };
 
   return (
     <div className="flex h-full flex-col">
-      <ScrollArea className="flex-1 min-h-0">
+      <ScrollArea ref={scrollRootRef} className="flex-1 min-h-0">
         <div className="mx-auto max-w-3xl px-4 py-6 pt-12 grid gap-4">
           {!hasKey && (
             <Alert>
@@ -254,7 +270,7 @@ export function SessionView({ session }: { session: AgentSession }) {
 
       <div className="bg-background">
         <div className="mx-auto max-w-3xl p-3">
-          <div className="grid grid-cols-[minmax(0,1fr)_2rem] items-center gap-2 rounded-[1.75rem] bg-muted/60 py-2 pl-4 pr-2 transition-colors focus-within:bg-muted/80">
+          <div className="grid grid-cols-[minmax(0,1fr)_2rem] items-end gap-2 rounded-[1.75rem] bg-muted/60 py-2 pl-4 pr-2 transition-colors focus-within:bg-muted/80">
             <Textarea
               id={`composer-${session.id}`}
               value={input}
