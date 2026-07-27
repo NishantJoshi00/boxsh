@@ -1,0 +1,20 @@
+[package]
+name = "boxsh-bench"
+description = "Native benchmarks for boxsh-fs. Manual timing, zero dependencies."
+version = "0.0.1"
+edition = "2024"
+publish = false
+
+# Standalone on purpose (own workspace), like the demo crates: keeps the
+# root workspace crates dependency-free and CI lean. No criterion — plain
+# Instant loops match the house zero-dep discipline and are enough for
+# order-of-magnitude tracking.
+[workspace]
+
+[dependencies]
+boxsh-fs = { path = "../../crates/boxsh-fs" }
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1

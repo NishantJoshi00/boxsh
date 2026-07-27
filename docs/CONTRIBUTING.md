@@ -71,7 +71,8 @@ cargo test --workspace --target wasm32-wasip1
 - `crates/boxsh-core` — shared storage primitives
 - `crates/boxsh-abi` — module-facing exports
 - `crates/boxsh-utils` — command support
-- `examples/playground` — browser shell and benchmarks
+- `examples/playground` — browser shell demo
+- `bench/` — benchmarks per runtime (browser, node, bun, native rust); see bench/README.md
 - `examples/comparison` — local browser comparison
 - `docs` — user and contributor documentation
 

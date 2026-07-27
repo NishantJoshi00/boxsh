@@ -1,5 +1,7 @@
-// boxsh bench — table harness; engine lives in runner.js.
-import { createRuntime } from "./runner.js";
+// boxsh browser bench — table harness; engine lives in the playground's
+// runner.js. Serve from the repo root (e.g. `python3 -m http.server`) and
+// open /bench/browser/bench.html so the relative paths below resolve.
+import { createRuntime } from "../../examples/playground/runner.js";
 
 const enc = new TextEncoder();
 const dec = new TextDecoder();
@@ -29,9 +31,9 @@ async function bench() {
 
   say("starting benchmark…");
   const t0 = performance.now();
-  const resp = await fetch("./coreutils-demo/target/wasm32-wasip1/release/coreutils-demo.wasm", { cache: "no-store" });
+  const resp = await fetch("../../examples/playground/coreutils-demo/target/wasm32-wasip1/release/coreutils-demo.wasm", { cache: "no-store" });
   const buf = await resp.arrayBuffer();
-  const hotBuf = await (await fetch("./hot-demo/target/wasm32-wasip1/release/hot_demo.wasm", { cache: "no-store" })).arrayBuffer();
+  const hotBuf = await (await fetch("../../examples/playground/hot-demo/target/wasm32-wasip1/release/hot_demo.wasm", { cache: "no-store" })).arrayBuffer();
   const t1 = performance.now();
   rt = createRuntime(await WebAssembly.compile(buf), await WebAssembly.compile(hotBuf));
   const t2 = performance.now();
