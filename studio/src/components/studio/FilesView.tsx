@@ -17,7 +17,9 @@ import {
 } from "@/components/ui/empty";
 import { Badge } from "@/components/ui/badge";
 import {
+  ArchiveRestore,
   ChevronRight,
+  Download,
   File,
   FileX,
   Folder,
@@ -25,6 +27,7 @@ import {
   FolderPlus,
   Upload,
 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   Collapsible,
@@ -268,6 +271,7 @@ export function FilesView({ hidden }: { hidden: boolean }) {
   const [version, setVersion] = useState(0);
   const [preview, setPreview] = useState<Preview>({ kind: "none" });
   const uploadRef = useRef<HTMLInputElement>(null);
+  const tarRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => onFsChanged(() => setVersion((v) => v + 1)), []);
 
@@ -278,6 +282,34 @@ export function FilesView({ hidden }: { hidden: boolean }) {
       await fs.writeFile(`${DATA_ROOT}/${f.name}`, new Uint8Array(await f.arrayBuffer()));
     }
     emitFsChanged();
+  };
+
+  const exportTar = async () => {
+    try {
+      const fs = await sharedFs();
+      // Copy: keeps the Blob detached from the backend's buffer lifetime.
+      const bytes = new Uint8Array(await fs.export());
+      const url = URL.createObjectURL(new Blob([bytes], { type: "application/x-tar" }));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "workspace.tar";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  const importTar = async (files: FileList | null) => {
+    const file = files?.[0];
+    if (!file) return;
+    try {
+      const fs = await sharedFs();
+      await fs.import(new Uint8Array(await file.arrayBuffer()));
+      emitFsChanged();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err));
+    }
   };
 
   useEffect(() => {
@@ -350,6 +382,46 @@ export function FilesView({ hidden }: { hidden: boolean }) {
                     }
                   />
                   <TooltipContent>Upload files into /data</TooltipContent>
+                </Tooltip>
+                <input
+                  ref={tarRef}
+                  type="file"
+                  accept=".tar,application/x-tar"
+                  hidden
+                  onChange={(e) => {
+                    void importTar(e.target.files);
+                    e.target.value = "";
+                  }}
+                />
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label="Load tar"
+                        onClick={() => tarRef.current?.click()}
+                      >
+                        <ArchiveRestore />
+                      </Button>
+                    }
+                  />
+                  <TooltipContent>Load tar into workspace</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label="Export tar"
+                        onClick={() => void exportTar()}
+                      >
+                        <Download />
+                      </Button>
+                    }
+                  />
+                  <TooltipContent>Export workspace.tar</TooltipContent>
                 </Tooltip>
               </div>
             </div>

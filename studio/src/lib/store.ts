@@ -10,6 +10,8 @@ export interface AgentSession {
   model: string;
 }
 
+export type BackendKind = "memory" | "indexeddb" | "opfs";
+
 export type WorkspaceView =
   | { kind: "empty" }
   | { kind: "session"; sessionId: string }
@@ -18,6 +20,7 @@ export type WorkspaceView =
 
 interface StudioState {
   sandboxName: string;
+  backendKind: BackendKind;
   sessions: AgentSession[];
   view: WorkspaceView;
   keys: Record<Provider, string>;
@@ -28,6 +31,7 @@ interface StudioState {
   modelPickerSessionId: string | null;
 
   setSandboxName: (name: string) => void;
+  setBackendKind: (kind: BackendKind) => void;
   addSession: () => string;
   removeSession: (id: string) => void;
   setSessionTitle: (id: string, title: string) => void;
@@ -47,6 +51,7 @@ export const useStudio = create<StudioState>()(
   persist(
     (set) => ({
       sandboxName: generateSandboxName(),
+      backendKind: "memory",
       sessions: [],
       view: { kind: "empty" },
       keys: { anthropic: "", openai: "" },
@@ -57,6 +62,7 @@ export const useStudio = create<StudioState>()(
       modelPickerSessionId: null,
 
       setSandboxName: (sandboxName) => set({ sandboxName }),
+      setBackendKind: (backendKind) => set({ backendKind }),
       addSession: () => {
         const id = nextId();
         set((st) => {
@@ -116,6 +122,7 @@ export const useStudio = create<StudioState>()(
       name: "boxsh-studio",
       partialize: (st) => ({
         sandboxName: st.sandboxName,
+        backendKind: st.backendKind,
         keys: st.keys,
         lastProvider: st.lastProvider,
         lastModels: st.lastModels,

@@ -1,6 +1,6 @@
 /** Agent tools against the real wasm engine — plain Node script, no framework. */
 import assert from "node:assert/strict";
-import { Filesystem, Sandbox, loadEngine, memory } from "@boxsh/sandbox";
+import { Filesystem, Sandbox, loadEngine, wasmMemory } from "@boxsh/sandbox";
 import { makeTools } from "../src/lib/agent/tools";
 
 const engineDir = new URL("../../packages/boxsh/engine/", import.meta.url);
@@ -8,7 +8,7 @@ const engine = await loadEngine({
   commands: new URL("commands.wasm", engineDir),
   optimizedCommands: new URL("commands-optimized.wasm", engineDir),
 });
-const fs = await Filesystem.create({ backend: memory() });
+const fs = await Filesystem.create({ backend: await wasmMemory() });
 const session = new Sandbox({ fs, engine });
 
 let mutations = 0;

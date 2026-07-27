@@ -4,7 +4,8 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { Spinner } from "@/components/ui/spinner";
 import { CircleAlert } from "lucide-react";
-import { initSandbox } from "@/lib/sandbox";
+import { toast } from "sonner";
+import { consumeBackendInitError, initSandbox } from "@/lib/sandbox";
 import {
   matchesGlobalHelpShortcut,
   matchesShortcut,
@@ -59,6 +60,14 @@ export default function Studio() {
       (err) => setEngine(err instanceof Error ? err.message : String(err)),
     );
   }, []);
+
+  // After the Toaster mounts: report if the saved backend failed to open and
+  // this load fell back to in-memory storage.
+  useEffect(() => {
+    if (engine !== "ready") return;
+    const error = consumeBackendInitError();
+    if (error) toast.error("Using in-memory storage", { description: error });
+  }, [engine]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {

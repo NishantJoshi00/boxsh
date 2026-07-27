@@ -15,6 +15,13 @@ import {
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Box,
@@ -27,10 +34,13 @@ import {
   SquareTerminal,
   X,
 } from "lucide-react";
+import { useState } from "react";
 import { useChat } from "@ai-sdk/react";
+import { toast } from "sonner";
 import { Spinner } from "@/components/ui/spinner";
-import { useStudio, type AgentSession } from "@/lib/store";
+import { useStudio, type AgentSession, type BackendKind } from "@/lib/store";
 import { sessionShortcutKeys, shortcut } from "@/lib/shortcuts";
+import { switchWorkspaceBackend } from "@/lib/sandbox";
 import { chatFor, disposeChat } from "@/lib/agent/chats";
 
 /** Provider icon that turns into a spinner while the session's agent runs. */
@@ -59,6 +69,50 @@ function SandboxName() {
   );
 }
 
+const BACKENDS: Record<BackendKind, string> = {
+  memory: "In-memory",
+  indexeddb: "IndexedDB",
+  opfs: "OPFS",
+};
+
+function BackendSelect() {
+  const kind = useStudio((st) => st.backendKind);
+  const setBackendKind = useStudio((st) => st.setBackendKind);
+  const [switching, setSwitching] = useState(false);
+
+  const onChange = (next: BackendKind | null) => {
+    if (!next || next === kind || switching) return;
+    setSwitching(true);
+    switchWorkspaceBackend(next)
+      .then(() => setBackendKind(next))
+      // The select is controlled by the store, so on failure it stays put.
+      .catch((err: unknown) =>
+        toast.error(err instanceof Error ? err.message : String(err)),
+      )
+      .finally(() => setSwitching(false));
+  };
+
+  return (
+    <Select value={kind} onValueChange={onChange} items={BACKENDS} disabled={switching}>
+      <SelectTrigger
+        size="sm"
+        aria-label="Storage backend"
+        className="h-6 gap-1 border-0 bg-transparent px-1 text-xs text-muted-foreground dark:bg-transparent dark:hover:bg-input/30"
+      >
+        {switching && <Spinner className="size-3" />}
+        <SelectValue className="flex-none" />
+      </SelectTrigger>
+      <SelectContent alignItemWithTrigger={false} align="start">
+        {(Object.keys(BACKENDS) as BackendKind[]).map((value) => (
+          <SelectItem key={value} value={value}>
+            {BACKENDS[value]}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
 export function AppSidebar() {
   const sessions = useStudio((st) => st.sessions);
   const view = useStudio((st) => st.view);
@@ -75,6 +129,9 @@ export function AppSidebar() {
           <Box className="size-4 shrink-0 text-muted-foreground" />
           <SandboxName />
           <SidebarTrigger className="shrink-0" />
+        </div>
+        <div className="px-1">
+          <BackendSelect />
         </div>
       </SidebarHeader>
 
