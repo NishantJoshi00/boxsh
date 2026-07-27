@@ -1,0 +1,14 @@
+[package]
+name = "boxsh-fs"
+description = "The boxsh virtual filesystem: path-level state with pluggable persistence."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+# Zero dependencies (D10 discipline, same as boxsh-core). The whole crate must
+# build unchanged on wasm32-wasip1 — anything host-specific (SQL clients,
+# std::fs-backed stores) lives in a separate store crate behind features,
+# never here.
+[dependencies]

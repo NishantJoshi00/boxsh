@@ -7,11 +7,16 @@ name = "boxsh-abi"
 version = "0.0.1"
 dependencies = [
  "boxsh-core",
+ "boxsh-fs",
  "boxsh-utils",
 ]
 
 [[package]]
 name = "boxsh-core"
+version = "0.0.1"
+
+[[package]]
+name = "boxsh-fs"
 version = "0.0.1"
 
 [[package]]
