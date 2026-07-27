@@ -1,6 +1,12 @@
 //! Functions used to load and exchange data with boxsh modules.
 
+pub mod fs;
+
 /// Version of the exported functions.
+///
+/// The filesystem exports in [`fs`] are additive on top of version 1's
+/// alloc/free exchange; hosts feature-detect them by export name rather
+/// than through this number.
 pub const ABI_VERSION: u32 = 1;
 
 /// Return the version of the exported functions.

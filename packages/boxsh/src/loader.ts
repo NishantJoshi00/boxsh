@@ -13,6 +13,8 @@ export interface BoxshInstance {
   alloc(len: number): number;
   free(ptr: number, len: number): void;
   memory: WebAssembly.Memory;
+  /** Raw module exports, for feature-detected extensions of the base ABI. */
+  exports: WebAssembly.Exports;
 }
 
 export const SUPPORTED_ABI_VERSION = 1;
@@ -80,5 +82,27 @@ export async function load(
     alloc: (len) => exports.boxsh_alloc(len),
     free: (ptr, len) => exports.boxsh_free(ptr, len),
     memory: exports.memory,
+    exports: instance.exports,
   };
+}
+
+export type ModuleSource = string | URL | BufferSource | WebAssembly.Module;
+
+/** Compile a wasm module from a URL, buffer, or precompiled module. */
+export async function compileModule(s: ModuleSource): Promise<WebAssembly.Module> {
+  if (s instanceof WebAssembly.Module) return s;
+  if (typeof s === "string" || s instanceof URL) {
+    if (s instanceof URL && s.protocol === "file:") {
+      const { readFile } = await import("node:fs/promises");
+      return WebAssembly.compile(await readFile(s));
+    }
+    const resp = await fetch(s);
+    if (!resp.ok) throw new Error(`Unable to load boxsh module from ${s} (HTTP ${resp.status}).`);
+    try {
+      return await WebAssembly.compileStreaming(resp.clone());
+    } catch {
+      return WebAssembly.compile(await resp.arrayBuffer());
+    }
+  }
+  return WebAssembly.compile(s);
 }

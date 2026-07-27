@@ -12,4 +12,5 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 boxsh-core = { path = "../boxsh-core" }
+boxsh-fs = { path = "../boxsh-fs" }
 boxsh-utils = { path = "../boxsh-utils" }

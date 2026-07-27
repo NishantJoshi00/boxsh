@@ -235,6 +235,52 @@ delete sandbox.env.DEBUG;
 
 `memory()` creates the built-in non-persistent backend.
 
+### `indexeddb` (browser persistence)
+
+`indexeddb()` opens a filesystem that survives page reloads. The working
+tree lives inside a WebAssembly filesystem module; changes replicate to an
+origin-scoped IndexedDB database in the background.
+
+```js
+import { Filesystem, indexeddb } from "@boxsh/sandbox";
+
+const backend = await indexeddb({ name: "workspace" });
+const fs = await Filesystem.create({ backend });
+// ... use fs / Sandbox as usual ...
+await backend.flush(); // durability checkpoint
+await backend.close(); // flush, release the tab lock, free the wasm state
+```
+
+Options:
+
+- `name` — logical filesystem name; maps to database `boxsh-fs:<name>`.
+  Different names are fully independent filesystems.
+- `module` — the filesystem wasm module (URL, buffer, or compiled module).
+  Defaults to the one bundled with the package.
+- `flushDebounceMs` — delay before a background flush after a mutation
+  (default `100`). Use `0` to persist as soon as possible; `flush()` always
+  forces an immediate one.
+- `onFlushError(error)` — called when a background flush fails (for example
+  on storage quota exhaustion). A retry stays scheduled; the working tree is
+  unaffected and can still be exported with `Filesystem.export()`.
+- `lock` — `"exclusive"` (default) fails fast if the same filesystem is open
+  in another tab, via Web Locks; `"none"` skips the guard.
+
+Writes are visible to reads immediately; durability lags by at most the
+debounce delay. Each replication batch commits in a single IndexedDB
+transaction, so the stored tree is always a consistent snapshot — an
+interrupted session can lose the last moments of work but never produces a
+corrupt filesystem. `await backend.flush()` before points where durability
+matters.
+
+`destroyIndexedDBFilesystem(name)` deletes a filesystem's database; close
+any open backend for that name first.
+
+`switchBackend` migrates between `memory()` and `indexeddb()` in either
+direction, and `export`/`import` tarballs work across all backends.
+
+### Custom backends
+
 Applications may provide another backend by implementing `StorageBackend`:
 
 ```ts

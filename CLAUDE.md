@@ -41,7 +41,7 @@ Single test: `node packages/boxsh/test/api.mjs` (tests are plain Node scripts wi
 Two layers connected by a minimal wasm ABI:
 
 **TypeScript layer** (`packages/boxsh/src/`) — the entire public API and the shell itself:
-- `filesystem.ts` + `backend.ts` + `backends/memory.ts` — `Filesystem` over a `StorageBackend` interface (memory backend is the only built-in; live migration between backends is supported).
+- `filesystem.ts` + `backend.ts` + `backends/` — `Filesystem` over a `StorageBackend` interface; live migration between backends is supported. Built-ins: `memory()` (TS map) and `indexeddb()` (persistent; the tree lives in the Rust wasm filesystem via `backends/wasmfs.ts`, replicated to IndexedDB by draining its journal — contract in crates/boxsh-fs/DESIGN.md).
 - `shell.ts` — the shell language implementation: tokenizing, pipes, redirects, conditionals, variables, command substitution, heredocs, loops. This is TS code, not wasm.
 - `engine.ts` — executes individual commands against the storage backend by instantiating wasm modules with WASI shims mapped onto the virtual filesystem.
 - `loader.ts` — low-level wasm loading; enforces `SUPPORTED_ABI_VERSION` and the `boxsh_alloc`/`boxsh_free` exchange contract.
@@ -51,7 +51,11 @@ Two layers connected by a minimal wasm ABI:
 - *Cold* (`examples/playground/coreutils-demo`): a multicall binary bundling ~70 uutils coreutils as a wasip1 *command* module — a fresh instance per command.
 - *Hot* (`examples/playground/hot-demo`): a wasip1 *reactor* — initialized once, commands are function calls. Only commands in `HOT_COMMANDS` (engine.ts) route here; it's 32–50% faster on hot paths.
 
-The demo crates are standalone Cargo packages (own `[workspace]` stanzas) deliberately kept out of the root workspace. The root workspace crates are small: `boxsh-core` (storage primitives — **zero dependencies, enforced**; see its Cargo.toml), `boxsh-utils` (command support), `boxsh-abi` (cdylib exporting the versioned ABI: `boxsh_abi_version`/`boxsh_alloc`/`boxsh_free`).
+The demo crates are standalone Cargo packages (own `[workspace]` stanzas) deliberately kept out of the root workspace. The root workspace crates are small: `boxsh-core` (block-storage primitives, currently dormant — **zero dependencies, enforced**; see its Cargo.toml), `boxsh-fs` (the virtual filesystem: `Backend` trait, `MemoryBackend` with dirty-path journal for host replication, tar codec — zero dependencies; see its DESIGN.md), `boxsh-utils` (command support), `boxsh-abi` (cdylib exporting the versioned ABI: `boxsh_abi_version`/`boxsh_alloc`/`boxsh_free`).
+
+Direction (2026-07): the whole sandbox is moving into Rust — filesystem (done: `boxsh-fs`), then shell + coreutils as a single wasm reactor with the TS package reduced to a loader/async facade/persistence adapters. Backends may be native-only and feature-gated out of the wasm build; `boxsh-fs` itself must always build on `wasm32-wasip1`.
+
+Benchmarks live in `bench/` — one harness per runtime (browser, node, bun, native rust); see bench/README.md for what each measures and how to run it.
 
 ## Constraints to respect
 

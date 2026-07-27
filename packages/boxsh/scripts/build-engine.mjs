@@ -21,6 +21,11 @@ const crates = [
     ),
     out: p("../engine/commands-optimized.wasm"),
   },
+  {
+    manifest: p("../../../crates/boxsh-abi/Cargo.toml"),
+    artifact: p("../../../target/wasm32-wasip1/release/boxsh_abi.wasm"),
+    out: p("../engine/fs.wasm"),
+  },
 ];
 
 const copyOnly = process.argv.includes("--copy-only");
@@ -31,6 +36,8 @@ const copyOnly = process.argv.includes("--copy-only");
 // hot: -O3 on the opt-level-3+simd build: sort -32%, grep -50% vs z.
 crates[0].wasmOpt = "-Oz";
 crates[1].wasmOpt = "-O3";
+// fs module: not on a measured hot path; size wins.
+crates[2].wasmOpt = "-Oz";
 
 const hasWasmOpt = spawnSync("wasm-opt", ["--version"], { stdio: "ignore" }).status === 0;
 if (!hasWasmOpt) {

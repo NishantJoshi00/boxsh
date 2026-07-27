@@ -45,6 +45,9 @@ jobs:
           npm ci
           npm run build
           node test/smoke.mjs
+      - name: IndexedDB backend against the real wasm filesystem
+        working-directory: packages/boxsh
+        run: node test/idb.mjs
 
   size-budget:
     runs-on: ubuntu-latest

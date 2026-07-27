@@ -43,11 +43,12 @@
     "build": "tsc",
     "build:engine": "node scripts/build-engine.mjs",
     "prepack": "npm run build && node scripts/sync-docs.mjs && node scripts/check-engine.mjs",
-    "test": "node test/smoke.mjs && node test/api.mjs",
+    "test": "node test/smoke.mjs && node test/api.mjs && node test/idb.mjs",
     "test:bundled": "node test/bundled.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "fake-indexeddb": "^6.2.5",
     "typescript": "^5.6.0"
   }
 }

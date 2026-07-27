@@ -1,6 +1,7 @@
 /** Run shell scripts against a virtual filesystem. */
 import { createEngine, type Engine, type EngineModules } from "./engine.js";
 import type { Filesystem } from "./filesystem.js";
+import { compileModule, type ModuleSource } from "./loader.js";
 import { createShell, type ShellSession } from "./shell.js";
 
 const dec = new TextDecoder();
@@ -26,7 +27,7 @@ export interface SandboxOptions {
   cwd?: string;
 }
 
-type EngineSource = string | URL | BufferSource | WebAssembly.Module;
+type EngineSource = ModuleSource;
 
 /**
  * Load command modules. With no arguments, loads the modules bundled with
@@ -38,23 +39,7 @@ export async function loadEngine(source?: {
   commands: EngineSource;
   optimizedCommands?: EngineSource;
 }): Promise<BoxshEngine> {
-  const compile = async (s: EngineSource): Promise<WebAssembly.Module> => {
-    if (s instanceof WebAssembly.Module) return s;
-    if (typeof s === "string" || s instanceof URL) {
-      if (s instanceof URL && s.protocol === "file:") {
-        const { readFile } = await import("node:fs/promises");
-        return WebAssembly.compile(await readFile(s));
-      }
-      const resp = await fetch(s);
-      if (!resp.ok) throw new Error(`Unable to load boxsh commands from ${s} (HTTP ${resp.status}).`);
-      try {
-        return await WebAssembly.compileStreaming(resp.clone());
-      } catch {
-        return WebAssembly.compile(await resp.arrayBuffer());
-      }
-    }
-    return WebAssembly.compile(s);
-  };
+  const compile = compileModule;
   const src = source ?? {
     commands: new URL("../engine/commands.wasm", import.meta.url),
     optimizedCommands: new URL("../engine/commands-optimized.wasm", import.meta.url),

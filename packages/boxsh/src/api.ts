@@ -7,5 +7,12 @@ export {
   type SandboxOptions,
 } from "./sandbox.js";
 export { memory } from "./backends/memory.js";
+export {
+  indexeddb,
+  destroyIndexedDBFilesystem,
+  type IndexedDBBackendOptions,
+} from "./backends/indexeddb.js";
+export { opfs, destroyOpfsFilesystem, type OpfsBackendOptions } from "./backends/opfs.js";
+export { wasmMemory, type WasmMemoryBackendOptions } from "./backends/wasmfs.js";
 export { BoxshError, type ErrnoCode } from "./errors.js";
 export { normalize, type StorageBackend, type BackendEntry } from "./backend.js";
