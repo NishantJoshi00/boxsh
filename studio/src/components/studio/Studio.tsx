@@ -5,7 +5,11 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/
 import { Spinner } from "@/components/ui/spinner";
 import { CircleAlert } from "lucide-react";
 import { toast } from "sonner";
-import { consumeBackendInitError, initSandbox } from "@/lib/sandbox";
+import {
+  consumeBackendInitError,
+  discoverWorkspaceSandboxes,
+  initSandbox,
+} from "@/lib/sandbox";
 import {
   matchesGlobalHelpShortcut,
   matchesShortcut,
@@ -56,7 +60,12 @@ export default function Studio() {
 
   useEffect(() => {
     initSandbox().then(
-      () => setEngine("ready"),
+      () => {
+        setEngine("ready");
+        void discoverWorkspaceSandboxes().then((sandboxes) =>
+          useStudio.getState().registerDiscoveredSandboxes(sandboxes),
+        );
+      },
       (err) => setEngine(err instanceof Error ? err.message : String(err)),
     );
   }, []);

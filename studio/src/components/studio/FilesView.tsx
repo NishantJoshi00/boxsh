@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Streamdown } from "streamdown";
 import { code } from "@streamdown/code";
 import type { DirEntry } from "@boxsh/sandbox";
@@ -17,30 +17,20 @@ import {
 } from "@/components/ui/empty";
 import { Badge } from "@/components/ui/badge";
 import {
-  ArchiveRestore,
   ChevronRight,
-  Download,
   File,
   FileX,
   Folder,
   FolderOpen,
-  FolderPlus,
-  Upload,
 } from "lucide-react";
-import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { Input } from "@/components/ui/input";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { sharedFs } from "@/lib/sandbox";
-import { emitFsChanged, onFsChanged } from "@/lib/events";
+import { onFsChanged } from "@/lib/events";
 import { cn } from "@/lib/utils";
-import { DATA_ROOT } from "@/lib/skills";
 
 const PREVIEW_LIMIT = 512 * 1024;
 /** Above this, skip Shiki and show plain text — highlighting gets slow. */
@@ -206,60 +196,6 @@ function DirChildren(props: {
   );
 }
 
-function NewFolderButton() {
-  const [open, setOpen] = useState(false);
-  const [name, setName] = useState("");
-
-  const create = async () => {
-    const trimmed = name.trim().replace(/^\/+|\/+$/g, "");
-    if (!trimmed) return;
-    const fs = await sharedFs();
-    await fs.mkdir(`${DATA_ROOT}/${trimmed}`, { recursive: true });
-    emitFsChanged();
-    setName("");
-    setOpen(false);
-  };
-
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <PopoverTrigger
-              render={
-                <Button variant="ghost" size="icon-sm" aria-label="New folder">
-                  <FolderPlus />
-                </Button>
-              }
-            />
-          }
-        />
-        <TooltipContent>New folder</TooltipContent>
-      </Tooltip>
-      <PopoverContent align="end" className="w-64 p-2">
-        <form
-          className="flex items-center gap-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            void create();
-          }}
-        >
-          <Input
-            autoFocus
-            placeholder="folder or nested/path"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="h-8"
-          />
-          <Button type="submit" size="sm" disabled={!name.trim()}>
-            Create
-          </Button>
-        </form>
-      </PopoverContent>
-    </Popover>
-  );
-}
-
 type Preview =
   | { kind: "none" }
   | { kind: "missing" }
@@ -270,47 +206,8 @@ export function FilesView({ hidden }: { hidden: boolean }) {
   const [selected, setSelected] = useState<string | null>(null);
   const [version, setVersion] = useState(0);
   const [preview, setPreview] = useState<Preview>({ kind: "none" });
-  const uploadRef = useRef<HTMLInputElement>(null);
-  const tarRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => onFsChanged(() => setVersion((v) => v + 1)), []);
-
-  const upload = async (files: FileList | null) => {
-    if (!files?.length) return;
-    const fs = await sharedFs();
-    for (const f of Array.from(files)) {
-      await fs.writeFile(`${DATA_ROOT}/${f.name}`, new Uint8Array(await f.arrayBuffer()));
-    }
-    emitFsChanged();
-  };
-
-  const exportTar = async () => {
-    try {
-      const fs = await sharedFs();
-      // Copy: keeps the Blob detached from the backend's buffer lifetime.
-      const bytes = new Uint8Array(await fs.export());
-      const url = URL.createObjectURL(new Blob([bytes], { type: "application/x-tar" }));
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "workspace.tar";
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : String(err));
-    }
-  };
-
-  const importTar = async (files: FileList | null) => {
-    const file = files?.[0];
-    if (!file) return;
-    try {
-      const fs = await sharedFs();
-      await fs.import(new Uint8Array(await file.arrayBuffer()));
-      emitFsChanged();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : String(err));
-    }
-  };
 
   useEffect(() => {
     if (!selected) {
@@ -354,76 +251,8 @@ export function FilesView({ hidden }: { hidden: boolean }) {
       <ResizablePanelGroup orientation="horizontal">
         <ResizablePanel defaultSize="30" minSize="18">
           <div className="flex h-full flex-col">
-            <div className="flex items-center justify-between border-b px-3 py-2 pl-12">
+            <div className="flex items-center border-b px-3 py-2 pl-12">
               <span className="text-sm font-medium">Files</span>
-              <div className="flex items-center">
-                <NewFolderButton />
-                <input
-                  ref={uploadRef}
-                  type="file"
-                  multiple
-                  hidden
-                  onChange={(e) => {
-                    void upload(e.target.files);
-                    e.target.value = "";
-                  }}
-                />
-                <Tooltip>
-                  <TooltipTrigger
-                    render={
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        aria-label="Upload files"
-                        onClick={() => uploadRef.current?.click()}
-                      >
-                        <Upload />
-                      </Button>
-                    }
-                  />
-                  <TooltipContent>Upload files into /data</TooltipContent>
-                </Tooltip>
-                <input
-                  ref={tarRef}
-                  type="file"
-                  accept=".tar,application/x-tar"
-                  hidden
-                  onChange={(e) => {
-                    void importTar(e.target.files);
-                    e.target.value = "";
-                  }}
-                />
-                <Tooltip>
-                  <TooltipTrigger
-                    render={
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        aria-label="Load tar"
-                        onClick={() => tarRef.current?.click()}
-                      >
-                        <ArchiveRestore />
-                      </Button>
-                    }
-                  />
-                  <TooltipContent>Load tar into workspace</TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger
-                    render={
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        aria-label="Export tar"
-                        onClick={() => void exportTar()}
-                      >
-                        <Download />
-                      </Button>
-                    }
-                  />
-                  <TooltipContent>Export workspace.tar</TooltipContent>
-                </Tooltip>
-              </div>
             </div>
             <ScrollArea className="flex-1 min-h-0">
               <div className="p-1.5">

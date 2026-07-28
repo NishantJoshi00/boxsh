@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { generateSandboxName } from "./names";
+import { generateSandboxId, generateSandboxName } from "./names";
 import { DEFAULT_MODELS, type Provider } from "./models";
 
 export interface AgentSession {
@@ -11,6 +11,14 @@ export interface AgentSession {
 }
 
 export type BackendKind = "memory" | "indexeddb" | "opfs";
+export type PersistentBackendKind = Exclude<BackendKind, "memory">;
+
+export interface SavedSandbox {
+  id: string;
+  name: string;
+  backendKind: PersistentBackendKind;
+  lastOpenedAt: number;
+}
 
 export type WorkspaceView =
   | { kind: "empty" }
@@ -19,8 +27,10 @@ export type WorkspaceView =
   | { kind: "files" };
 
 interface StudioState {
+  sandboxId: string;
   sandboxName: string;
   backendKind: BackendKind;
+  savedSandboxes: SavedSandbox[];
   sessions: AgentSession[];
   view: WorkspaceView;
   keys: Record<Provider, string>;
@@ -31,7 +41,15 @@ interface StudioState {
   modelPickerSessionId: string | null;
 
   setSandboxName: (name: string) => void;
-  setBackendKind: (kind: BackendKind) => void;
+  activateSandbox: (sandbox: {
+    id: string;
+    name: string;
+    backendKind: BackendKind;
+  }) => void;
+  registerDiscoveredSandboxes: (
+    sandboxes: Pick<SavedSandbox, "id" | "backendKind">[],
+  ) => void;
+  removeSavedSandbox: (id: string, backendKind: PersistentBackendKind) => void;
   addSession: () => string;
   removeSession: (id: string) => void;
   setSessionTitle: (id: string, title: string) => void;
@@ -46,12 +64,16 @@ interface StudioState {
 
 let counter = 0;
 const nextId = () => `session-${++counter}-${Date.now().toString(36)}`;
+const savedKey = (sandbox: Pick<SavedSandbox, "id" | "backendKind">) =>
+  `${sandbox.backendKind}:${sandbox.id}`;
 
 export const useStudio = create<StudioState>()(
   persist(
     (set) => ({
+      sandboxId: generateSandboxId(),
       sandboxName: generateSandboxName(),
       backendKind: "memory",
+      savedSandboxes: [],
       sessions: [],
       view: { kind: "empty" },
       keys: { anthropic: "", openai: "" },
@@ -61,8 +83,69 @@ export const useStudio = create<StudioState>()(
       skillsOpen: false,
       modelPickerSessionId: null,
 
-      setSandboxName: (sandboxName) => set({ sandboxName }),
-      setBackendKind: (backendKind) => set({ backendKind }),
+      setSandboxName: (sandboxName) =>
+        set((st) => ({
+          sandboxName,
+          savedSandboxes: st.savedSandboxes.map((sandbox) =>
+            sandbox.id === st.sandboxId &&
+            sandbox.backendKind === st.backendKind
+              ? { ...sandbox, name: sandboxName }
+              : sandbox,
+          ),
+        })),
+      activateSandbox: (sandbox) =>
+        set((st) => {
+          const opened: SavedSandbox | undefined =
+            sandbox.backendKind === "memory"
+              ? undefined
+              : {
+                  ...sandbox,
+                  backendKind: sandbox.backendKind,
+                  lastOpenedAt: Date.now(),
+                };
+          const savedSandboxes = opened
+            ? [
+                opened,
+                ...st.savedSandboxes.filter(
+                  (item) => savedKey(item) !== savedKey(opened),
+                ),
+              ]
+            : st.savedSandboxes;
+          return {
+            sandboxId: sandbox.id,
+            sandboxName: sandbox.name,
+            backendKind: sandbox.backendKind,
+            savedSandboxes,
+            view: { kind: "empty" },
+          };
+        }),
+      registerDiscoveredSandboxes: (sandboxes) =>
+        set((st) => {
+          const known = new Set(st.savedSandboxes.map(savedKey));
+          const discovered = sandboxes
+            .filter((sandbox) => !known.has(savedKey(sandbox)))
+            .map<SavedSandbox>((sandbox) => ({
+              ...sandbox,
+              name:
+                sandbox.id === st.sandboxId &&
+                sandbox.backendKind === st.backendKind
+                  ? st.sandboxName
+                  : sandbox.id === "studio"
+                    ? "Saved sandbox"
+                    : sandbox.id,
+              lastOpenedAt: 0,
+            }));
+          return discovered.length
+            ? { savedSandboxes: [...st.savedSandboxes, ...discovered] }
+            : st;
+        }),
+      removeSavedSandbox: (id, backendKind) =>
+        set((st) => ({
+          savedSandboxes: st.savedSandboxes.filter(
+            (sandbox) =>
+              sandbox.id !== id || sandbox.backendKind !== backendKind,
+          ),
+        })),
       addSession: () => {
         const id = nextId();
         set((st) => {
@@ -120,9 +203,41 @@ export const useStudio = create<StudioState>()(
     }),
     {
       name: "boxsh-studio",
+      version: 1,
+      migrate: (persisted) => {
+        const state = persisted as Partial<StudioState>;
+        const backendKind = state.backendKind ?? "memory";
+        const sandboxName = state.sandboxName ?? generateSandboxName();
+        const sandboxId =
+          state.sandboxId ??
+          (backendKind === "memory" ? generateSandboxId() : "studio");
+        const savedSandboxes =
+          state.savedSandboxes ??
+          (backendKind === "memory"
+            ? []
+            : [
+                {
+                  id: sandboxId,
+                  name: sandboxName,
+                  backendKind,
+                  lastOpenedAt: Date.now(),
+                },
+              ]);
+        return {
+          sandboxId,
+          sandboxName,
+          backendKind,
+          savedSandboxes,
+          keys: state.keys ?? { anthropic: "", openai: "" },
+          lastProvider: state.lastProvider ?? "anthropic",
+          lastModels: state.lastModels ?? { ...DEFAULT_MODELS },
+        };
+      },
       partialize: (st) => ({
+        sandboxId: st.sandboxId,
         sandboxName: st.sandboxName,
         backendKind: st.backendKind,
+        savedSandboxes: st.savedSandboxes,
         keys: st.keys,
         lastProvider: st.lastProvider,
         lastModels: st.lastModels,
