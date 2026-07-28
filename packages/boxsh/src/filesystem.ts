@@ -103,12 +103,15 @@ export class Filesystem {
 
   /** The whole workspace as a tar archive. */
   async export(): Promise<Uint8Array> {
-    return tarExport(this.backend);
+    const b = this.backend as StorageBackend & { exportTar?: () => Uint8Array };
+    return b.exportTar ? b.exportTar() : tarExport(this.backend);
   }
 
   /** Merge a tar archive into the workspace. */
   async import(tar: Uint8Array): Promise<void> {
-    tarImport(this.backend, tar);
+    const b = this.backend as StorageBackend & { importTar?: (tar: Uint8Array) => void };
+    if (b.importTar) b.importTar(tar);
+    else tarImport(this.backend, tar);
   }
 
   /** Copy everything to a new backend, then make it the active one. */

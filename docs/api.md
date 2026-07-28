@@ -279,7 +279,16 @@ corrupt filesystem. `await backend.flush()` before points where durability
 matters.
 
 `destroyIndexedDBFilesystem(name)` deletes a filesystem's database; close
-any open backend for that name first.
+any open backend for that name first. `opfs({ name, ... })` is the same
+model stored as real files in the Origin Private File System
+(`destroyOpfsFilesystem(name)` removes it).
+
+### `tarfile` (archive snapshots)
+
+`tarfile({ tar?, onFlush? })` opens a workspace seeded from a tar archive;
+`onFlush` receives the updated archive on every `flush()` and on `close()`.
+The tree and the tar codec run inside the wasm module. Works everywhere —
+browsers, Node, tests — as a snapshot/seed backend.
 
 `switchBackend` migrates between `memory()` and `indexeddb()` in either
 direction, and `export`/`import` tarballs work across all backends.

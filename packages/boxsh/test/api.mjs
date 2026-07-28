@@ -5,7 +5,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import assert from "node:assert/strict";
-import { Filesystem, Sandbox, memory, wasmMemory, loadEngine, BoxshError } from "../dist/index.js";
+import { Filesystem, Sandbox, memory, wasmMemory, tarfile, loadEngine, BoxshError } from "../dist/index.js";
 
 const p = (rel) => fileURLToPath(new URL(rel, import.meta.url));
 const engine = await loadEngine({
@@ -87,5 +87,29 @@ await assert.rejects(() => sb.exec("cat /src/renamed.txt"), /wasm backend/);
 await fs.switchBackend(await wasmMemory({ module: fsModule }));
 r = await sb.exec("cat /src/renamed.txt");
 assert.equal(r.stdout, "hello boxsh\n");
+
+// --- tarfile backend: open from an archive, flush hands it back ---
+{
+  const seeded = await tarfile({ tar, module: fsModule });
+  const tfs = await Filesystem.create({ backend: seeded });
+  assert.equal(await tfs.readFile("/src/renamed.txt", "utf-8"), "hello boxsh\n");
+  const tsb = new Sandbox({ fs: tfs, engine });
+  const tr = await tsb.exec("echo added > /src/new.txt && cat /src/new.txt");
+  assert.equal(tr.stdout, "added\n");
+  let captured;
+  const capturing = await tarfile({
+    tar: await tfs.export(),
+    module: fsModule,
+    onFlush: (bytes) => {
+      captured = bytes;
+    },
+  });
+  await capturing.flush();
+  const back = await Filesystem.create({ backend: memory() });
+  await back.import(captured);
+  assert.equal(await back.readFile("/src/new.txt", "utf-8"), "added\n");
+  await capturing.close();
+  await seeded.close();
+}
 
 console.log("api OK: filesystem, sandbox, heredocs, pipes, tar, switchBackend");

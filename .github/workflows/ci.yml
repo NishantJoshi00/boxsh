@@ -23,6 +23,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: cargo test --workspace
+      - name: SQLite store (standalone, native-only crate)
+        run: cargo test --manifest-path crates/boxsh-store-sqlite/Cargo.toml
 
   test-wasm:
     runs-on: ubuntu-latest

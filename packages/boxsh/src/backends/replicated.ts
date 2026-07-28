@@ -83,9 +83,23 @@ export function replicatedBackend(options: ReplicatedBackendOptions): Replicated
     if (closed) throw new Error(`Filesystem "${name}" is closed.`);
   };
 
-  const backend: StorageBackend & { wasm: WasmFsInfo } = {
+  const backend: StorageBackend & {
+    wasm: WasmFsInfo;
+    exportTar(): Uint8Array;
+    importTar(tar: Uint8Array): void;
+  } = {
     kind,
     wasm: inner.wasm,
+
+    exportTar() {
+      assertOpen();
+      return inner.exportTar();
+    },
+    importTar(tar) {
+      assertOpen();
+      inner.importTar(tar);
+      schedule();
+    },
 
     read(path) {
       assertOpen();

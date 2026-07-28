@@ -1,0 +1,18 @@
+[package]
+name = "boxsh-store-sqlite"
+description = "SQLite persistence for the boxsh filesystem. Native-only."
+version = "0.0.1"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+publish = false
+
+# Standalone on purpose (own workspace): this crate is native-only and
+# dependency-heavy, so it never joins the root workspace — wasm builds and
+# the zero-dep discipline of the library crates stay untouched. The same
+# schema and drain contract port to Postgres or any SQL database; see the
+# module docs.
+[workspace]
+
+[dependencies]
+boxsh-fs = { path = "../boxsh-fs" }
+rusqlite = { version = "0.40.1", features = ["bundled"] }

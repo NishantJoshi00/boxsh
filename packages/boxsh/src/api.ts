@@ -14,5 +14,6 @@ export {
 } from "./backends/indexeddb.js";
 export { opfs, destroyOpfsFilesystem, type OpfsBackendOptions } from "./backends/opfs.js";
 export { wasmMemory, type WasmMemoryBackendOptions } from "./backends/wasmfs.js";
+export { tarfile, type TarBackendOptions } from "./backends/tarfile.js";
 export { BoxshError, type ErrnoCode } from "./errors.js";
 export { normalize, type StorageBackend, type BackendEntry } from "./backend.js";

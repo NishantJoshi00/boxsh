@@ -34,6 +34,8 @@ interface FsExports {
   boxsh_fs_remove(handle: number, path: number, pathLen: number): number;
   boxsh_fs_rename(handle: number, from: number, fromLen: number, to: number, toLen: number): number;
   boxsh_fs_take_dirty(handle: number, out: number): number;
+  boxsh_fs_export_tar(handle: number, out: number): number;
+  boxsh_fs_import_tar(handle: number, tar: number, tarLen: number): number;
   boxsh_fs_restore(
     handle: number,
     path: number,
@@ -57,6 +59,10 @@ export interface WasmFsBackend extends StorageBackend {
   takeDirty(): string[];
   /** Recreate a node during hydration; `null` data restores a directory. */
   restore(path: string, mtime: number, data: Uint8Array | null): void;
+  /** The whole tree as a tar archive (the in-module Rust codec). */
+  exportTar(): Uint8Array;
+  /** Merge a tar archive into the tree (overwrite; parents created). */
+  importTar(tar: Uint8Array): void;
   /** @internal The Sandbox binds its shell to this. */
   readonly wasm: WasmFsInfo;
 }
@@ -229,6 +235,23 @@ export function wasmFilesystem(instance: BoxshInstance): WasmFsBackend {
       const s = fs.boxsh_fs_take_dirty(handle, outCell);
       if (s !== 0) fail(s, "");
       return decodePathList(takeBuffer());
+    },
+
+    exportTar() {
+      const s = fs.boxsh_fs_export_tar(handle, outCell);
+      if (s !== 0) fail(s, "");
+      return takeBuffer();
+    },
+
+    importTar(tar) {
+      stamp();
+      const t = stage(tar);
+      try {
+        const s = fs.boxsh_fs_import_tar(handle, t, tar.length);
+        if (s !== 0) fail(s, "");
+      } finally {
+        unstage(t, tar.length);
+      }
     },
 
     restore(path, mtime, data) {
