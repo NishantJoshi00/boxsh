@@ -167,7 +167,7 @@ export function SessionView({ session }: { session: AgentSession }) {
   return (
     <div className="flex h-full flex-col">
       <ScrollArea ref={scrollRootRef} className="flex-1 min-h-0">
-        <div className="mx-auto max-w-3xl px-4 py-6 pt-12 grid gap-4">
+        <div className="mx-auto grid w-full max-w-3xl grid-cols-[minmax(0,1fr)] gap-4 px-4 py-6 pt-12">
           {!hasKey && (
             <Alert>
               <KeyRound />
@@ -197,7 +197,10 @@ export function SessionView({ session }: { session: AgentSession }) {
           )}
 
           {messages.map((m) => (
-            <div key={m.id} className="grid gap-2">
+            <div
+              key={m.id}
+              className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-2"
+            >
               {m.role === "user" ? (
                 <div className="justify-self-end max-w-[85%] rounded-xl bg-primary text-primary-foreground px-3.5 py-2 text-sm whitespace-pre-wrap">
                   {m.parts

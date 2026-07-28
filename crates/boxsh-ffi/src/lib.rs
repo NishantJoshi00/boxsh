@@ -144,9 +144,15 @@ impl CommandRunner for NativeRunner {
                 err: o.err,
                 code: o.code,
             },
+            // Known command, unsupported flags: in wasm hosts this falls
+            // through to the full uutils tier; there is no such tier here.
             None => CommandOutput {
                 out: Vec::new(),
-                err: Vec::new(),
+                err: format!(
+                    "{}: unsupported usage in the native embedding\n",
+                    argv.first().map(String::as_str).unwrap_or("")
+                )
+                .into_bytes(),
                 code: 127,
             },
         }

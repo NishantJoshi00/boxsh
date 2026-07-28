@@ -65,6 +65,15 @@ assert.match(r.stderr, /command not found/);
 r = await sb.exec("grep -c boxsh /src/renamed.txt");
 assert.equal(r.stdout.trim(), "1");
 
+// flags beyond the in-module subset fall through to full uutils
+// (regression: grep -E errored; sort -n silently sorted lexicographically)
+r = await sb.exec('seq 1 12 | sort -n | head -3');
+assert.equal(r.stdout, "1\n2\n3\n");
+r = await sb.exec('echo abcat | grep -oE "cat|dog"');
+assert.equal(r.stdout, "cat\n");
+r = await sb.exec("seq 1 3 | sort -r | uniq -c | wc -l");
+assert.equal(r.stdout.trim(), "3");
+
 // shell writes carry real clock time (regression: the module clock was
 // never stamped on the exec path, leaving mtime 0 or a stale value)
 r = await sb.exec("echo stamped > /stamp.txt");

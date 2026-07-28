@@ -26,7 +26,63 @@ pub fn knows(name: &str) -> bool {
     )
 }
 
-/// Run an in-module command; `None` if `argv[0]` is not one of ours.
+/// Would the in-module implementation handle this exact invocation?
+///
+/// These commands implement the common flag subsets, not the full uutils
+/// surface — an unrecognized flag must DECLINE (so the shell falls through
+/// to the host's full implementations) rather than error, or worse,
+/// silently misbehave: in-module `sort` seeing `-n` would sort
+/// lexicographically and nobody would know.
+fn handles(name: &str, args: &[String]) -> bool {
+    let flags = || args.iter().filter(|a| a.starts_with('-') && a.len() > 1);
+    match name {
+        "true" | "false" => true,
+        // Behavior-changing echo flags (-e, -E) belong to the full echo.
+        "echo" => args
+            .first()
+            .is_none_or(|a| a == "-n" || !a.starts_with('-')),
+        // `-` (stdin marker) and cat flags are the host's business.
+        "cat" => !args.iter().any(|a| a.starts_with('-')),
+        // seq dashes must be negative numbers, not options.
+        "seq" => args.iter().all(|a| a.parse::<i64>().is_ok()),
+        "tee" => flags().all(|a| a == "-a"),
+        "wc" => flags().all(|a| matches!(a.as_str(), "-l" | "-w" | "-c")),
+        "sort" => flags().all(|a| a == "-r"),
+        "grep" => {
+            // Only leading combined -cinv flags (before the pattern).
+            let mut seen_pattern = false;
+            args.iter().all(|a| {
+                if seen_pattern || !a.starts_with('-') || a.len() == 1 {
+                    seen_pattern = true;
+                    true
+                } else {
+                    a[1..]
+                        .chars()
+                        .all(|c| matches!(c, 'c' | 'i' | 'n' | 'v' | 'E' | 'o'))
+                }
+            })
+        }
+        "head" => {
+            let mut it = args.iter();
+            while let Some(a) = it.next() {
+                if a == "-n" {
+                    if it.next().and_then(|v| v.parse::<usize>().ok()).is_none() {
+                        return false;
+                    }
+                } else if let Some(rest) = a.strip_prefix('-')
+                    && (rest.is_empty() || !rest.chars().all(|c| c.is_ascii_digit()))
+                {
+                    return false;
+                }
+            }
+            true
+        }
+        _ => false,
+    }
+}
+
+/// Run an in-module command; `None` if `argv[0]` is not one of ours or the
+/// invocation uses flags only the host's full implementations support.
 pub fn run(
     backend: &mut (impl Backend + ?Sized),
     cwd: &str,
@@ -34,7 +90,7 @@ pub fn run(
     stdin: &[u8],
 ) -> Option<Output> {
     let name = argv.first().map(String::as_str)?;
-    if !knows(name) {
+    if !knows(name) || !handles(name, &argv[1..]) {
         return None;
     }
     let mut io = Io {
@@ -327,8 +383,8 @@ fn cmd_sort<B: Backend + ?Sized>(io: &mut Io<'_, B>, args: &[String]) -> i32 {
 }
 
 fn cmd_grep<B: Backend + ?Sized>(io: &mut Io<'_, B>, args: &[String]) -> i32 {
-    let (mut count_only, mut ignore_case, mut line_numbers, mut invert) =
-        (false, false, false, false);
+    let (mut count_only, mut ignore_case, mut line_numbers, mut invert, mut only_matching) =
+        (false, false, false, false, false);
     let mut pattern: Option<&String> = None;
     let mut files: Vec<&String> = Vec::new();
     for a in args {
@@ -339,6 +395,10 @@ fn cmd_grep<B: Backend + ?Sized>(io: &mut Io<'_, B>, args: &[String]) -> i32 {
                     'i' => ignore_case = true,
                     'n' => line_numbers = true,
                     'v' => invert = true,
+                    // This grep is regex-lite underneath — ERE-shaped
+                    // already, so -E selects what it always does.
+                    'E' => {}
+                    'o' => only_matching = true,
                     _ => {
                         io.errln(&format!("grep: invalid option -- '{ch}'"));
                         return 2;
@@ -352,7 +412,7 @@ fn cmd_grep<B: Backend + ?Sized>(io: &mut Io<'_, B>, args: &[String]) -> i32 {
         }
     }
     let Some(pat) = pattern else {
-        io.errln("usage: grep [-cinv] PATTERN [FILE...]");
+        io.errln("usage: grep [-cinovE] PATTERN [FILE...]");
         return 2;
     };
     let re = match regex_lite::RegexBuilder::new(pat)
@@ -393,7 +453,10 @@ fn cmd_grep<B: Backend + ?Sized>(io: &mut Io<'_, B>, args: &[String]) -> i32 {
             if re.is_match(&text) != invert {
                 any = true;
                 count += 1;
-                if !count_only {
+                if count_only {
+                    continue;
+                }
+                let prefix = |io: &mut Io<'_, B>| {
                     if multi {
                         io.out.extend_from_slice(name.as_bytes());
                         io.out.push(b':');
@@ -401,6 +464,18 @@ fn cmd_grep<B: Backend + ?Sized>(io: &mut Io<'_, B>, args: &[String]) -> i32 {
                     if line_numbers {
                         io.out.extend_from_slice(format!("{}:", i + 1).as_bytes());
                     }
+                };
+                if only_matching {
+                    // Inverted lines have no matches to print (GNU parity).
+                    if !invert {
+                        for m in re.find_iter(&text) {
+                            prefix(io);
+                            io.out.extend_from_slice(m.as_str().as_bytes());
+                            io.out.push(b'\n');
+                        }
+                    }
+                } else {
+                    prefix(io);
                     io.out.extend_from_slice(line);
                     io.out.push(b'\n');
                 }
@@ -437,6 +512,70 @@ mod tests {
         assert!(knows("grep"));
         assert!(!knows("ls"));
         assert!(run(&mut b, "/", &["ls".to_string()], b"").is_none());
+    }
+
+    #[test]
+    fn unsupported_flags_decline_instead_of_misbehaving() {
+        // Regression: in-module grep errored on -E and in-module sort
+        // silently sorted -n lexicographically; both must decline so the
+        // shell falls through to the full uutils implementations.
+        let mut b = MemoryBackend::new();
+        let declines = [
+            vec!["grep", "-w", "x"],
+            vec!["grep", "-A", "1"],
+            vec!["grep", "--", "x"],
+            vec!["sort", "-n"],
+            vec!["sort", "-u"],
+            vec!["wc", "-m"],
+            vec!["head", "-c", "10"],
+            vec!["echo", "-e", "a\\tb"],
+            vec!["cat", "-n", "f"],
+            vec!["cat", "-"],
+            vec!["tee", "-i", "f"],
+            vec!["seq", "-w", "3"],
+        ];
+        for argv in declines {
+            let argv: Vec<String> = argv.iter().map(|s| s.to_string()).collect();
+            assert!(
+                run(&mut b, "/", &argv, b"x\n").is_none(),
+                "should decline: {argv:?}"
+            );
+        }
+        // The supported subsets still run in-module, including edge shapes.
+        assert_eq!(
+            out(&mut b, "/", &["seq", "-2", "2"], b""),
+            "-2\n-1\n0\n1\n2\n"
+        );
+        assert_eq!(out(&mut b, "/", &["grep", "-cv", "z"], b"a\nz\n"), "1\n");
+        assert_eq!(out(&mut b, "/", &["echo", "-n", "x"], b""), "x");
+    }
+
+    #[test]
+    fn grep_supports_ere_and_only_matching() {
+        // Regression: -E errored (the engine is ERE-shaped already, so it
+        // is a no-op) and -o did not exist.
+        let mut b = MemoryBackend::new();
+        let text = b"alpha\nbeta\ngamma\n";
+        assert_eq!(
+            out(&mut b, "/", &["grep", "-E", "alpha|gamma"], text),
+            "alpha\ngamma\n"
+        );
+        assert_eq!(
+            out(&mut b, "/", &["grep", "-o", "a."], b"banana\n"),
+            "an\nan\n"
+        );
+        assert_eq!(
+            out(&mut b, "/", &["grep", "-oE", "cat|dog"], b"abcat dogma\n"),
+            "cat\ndog\n"
+        );
+        assert_eq!(
+            out(&mut b, "/", &["grep", "-on", "et"], b"x\nbeta\n"),
+            "2:et\n"
+        );
+        assert_eq!(out(&mut b, "/", &["grep", "-cE", "a|b"], text), "3\n");
+        // -v with -o: inverted lines have no matches to print (GNU parity).
+        assert_eq!(out(&mut b, "/", &["grep", "-ov", "beta"], text), "");
+        assert_eq!(run_cmd(&mut b, "/", &["grep", "-ov", "beta"], text).code, 0);
     }
 
     #[test]

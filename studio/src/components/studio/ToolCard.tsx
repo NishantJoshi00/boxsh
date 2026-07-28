@@ -85,9 +85,13 @@ export function ToolGroup({ parts }: { parts: ToolPartLike[] }) {
   const Chevron = open ? ChevronDown : ChevronRight;
 
   return (
-    <Collapsible open={open} onOpenChange={setUserOpen}>
+    <Collapsible
+      open={open}
+      onOpenChange={setUserOpen}
+      className="min-w-0 max-w-full"
+    >
       <CollapsibleTrigger
-        className="group flex items-center gap-1.5 py-0.5 text-left text-xs text-foreground/70 hover:text-foreground"
+        className="group flex max-w-full min-w-0 items-center gap-1.5 overflow-hidden py-0.5 text-left text-xs text-foreground/70 hover:text-foreground"
       >
         <span>{describe(parts)}</span>
         {failed > 0 && !running && (
@@ -99,7 +103,7 @@ export function ToolGroup({ parts }: { parts: ToolPartLike[] }) {
           <Chevron className="size-3 shrink-0 opacity-40 group-hover:opacity-80" />
         )}
       </CollapsibleTrigger>
-      <CollapsibleContent className="ml-1 border-l border-border/60 pl-3">
+      <CollapsibleContent className="ml-1 min-w-0 border-l border-border/60 pl-3">
         {parts.map((part, i) => (
           <ToolRow key={i} part={part} />
         ))}
@@ -120,12 +124,16 @@ export function ToolRow({ part }: { part: ToolPartLike }) {
   const Chevron = open ? ChevronDown : ChevronRight;
 
   return (
-    <Collapsible open={open} onOpenChange={setOpen} className="text-muted-foreground">
+    <Collapsible
+      open={open}
+      onOpenChange={setOpen}
+      className="min-w-0 max-w-full text-muted-foreground"
+    >
       <CollapsibleTrigger
-        className="group flex w-full items-center gap-1.5 py-0.5 text-left text-xs"
+        className="group flex w-full min-w-0 items-center gap-1.5 overflow-hidden py-0.5 text-left text-xs"
       >
         <span className="shrink-0 font-medium">{toolName}</span>
-        <span className="truncate font-mono text-muted-foreground/60">
+        <span className="min-w-0 flex-1 truncate font-mono text-muted-foreground/60">
           {summarize(toolName, part.input)}
         </span>
         {running ? (
@@ -141,7 +149,7 @@ export function ToolRow({ part }: { part: ToolPartLike }) {
           </>
         )}
       </CollapsibleTrigger>
-      <CollapsibleContent className="mb-1 ml-1 grid gap-2 border-l border-border/60 py-1 pl-3">
+      <CollapsibleContent className="mb-1 ml-1 grid min-w-0 grid-cols-[minmax(0,1fr)] gap-2 border-l border-border/60 py-1 pl-3">
         {toolName === "bash" ? (
           <OutputBlock
             label="script"

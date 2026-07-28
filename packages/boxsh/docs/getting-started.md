@@ -16,10 +16,10 @@ supports `new URL(..., import.meta.url)` asset references.
 ## Run your first command
 
 ```js
-import { Filesystem, Sandbox, loadEngine, memory } from "@boxsh/sandbox";
+import { Filesystem, Sandbox, loadEngine, wasmMemory } from "@boxsh/sandbox";
 
 const engine = await loadEngine();
-const filesystem = await Filesystem.create({ backend: memory() });
+const filesystem = await Filesystem.create({ backend: await wasmMemory() });
 
 await filesystem.mkdir("/workspace");
 await filesystem.writeFile(
@@ -67,7 +67,6 @@ To load the command modules from a CDN or another location instead:
 ```js
 const engine = await loadEngine({
   commands: "https://cdn.example.com/boxsh/commands.wasm",
-  optimizedCommands: "https://cdn.example.com/boxsh/commands-optimized.wasm",
 });
 ```
 

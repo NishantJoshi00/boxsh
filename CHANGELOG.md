@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.2.1 — 2026-07-28
+
+### Fixed
+
+- In-module commands now decline flags they don't implement so the shell
+  falls through to the full uutils implementations, instead of erroring
+  (`grep -E`) or silently misbehaving (`sort -n` sorted
+  lexicographically; `wc -m`, `head -c`, `echo -e`, `cat -n` and similar
+  were affected the same way).
+- In-module `grep` gains `-E` (a no-op — its engine is ERE-shaped
+  already) and `-o` (only-matching), so the most common variants stay on
+  the fast path.
+- The native FFI reports "unsupported usage" for declined invocations
+  rather than a bare 127 (it has no uutils tier to fall through to).
+
 ## 0.2.0 — 2026-07-28
 
 The sandbox is Rust now. The filesystem, the shell, and the hot-path
