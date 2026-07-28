@@ -1,0 +1,11 @@
+[package]
+name = "wasmtime-host"
+description = "Embed the boxsh wasm sandbox via wasmtime — the isolation-preserving path for other languages."
+version = "0.0.1"
+edition = "2021"
+publish = false
+
+[workspace]
+
+[dependencies]
+wasmtime = "27"

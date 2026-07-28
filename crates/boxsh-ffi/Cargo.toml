@@ -1,0 +1,25 @@
+[package]
+name = "boxsh-ffi"
+description = "C ABI for embedding the boxsh sandbox natively."
+version = "0.0.1"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+publish = false
+
+# Standalone (own workspace): native-only, ships as a cdylib for FFI hosts
+# (Python ctypes/cffi, Go cgo, anything with a C FFI). Embedders who want
+# the wasm isolation guarantees instead should embed engine/fs.wasm via a
+# wasm runtime — see examples/embedding/wasmtime-host.
+[workspace]
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+boxsh-commands = { path = "../boxsh-commands" }
+boxsh-fs = { path = "../boxsh-fs" }
+boxsh-shell = { path = "../boxsh-shell" }
+
+[profile.release]
+opt-level = 3
+lto = true
