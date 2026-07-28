@@ -26,7 +26,7 @@
 use boxsh_fs::{Backend, Entry, Error, Result as FsResult};
 use boxsh_shell::{CommandOutput, CommandRunner, Env, Session, exec_script};
 
-use crate::fs::{ERR_BAD_HANDLE, emit, encode_path_list, str_arg, with_fs};
+use crate::fs::{ERR_BAD_HANDLE, emit, encode_path_list, str_arg, with_fs, with_fs_mutating};
 
 /// A [`Backend`] over a registry handle that borrows per call, so command
 /// re-entry through the fs exports never overlaps a live borrow.
@@ -48,7 +48,8 @@ impl Backend for RegistryBackend {
     }
 
     fn write(&mut self, path: &str, data: &[u8]) -> FsResult<()> {
-        with_fs(self.handle, |fs| fs.write(path, data).map_err(status_of)).map_err(restore_err)
+        with_fs_mutating(self.handle, |fs| fs.write(path, data).map_err(status_of))
+            .map_err(restore_err)
     }
 
     fn entry(&mut self, path: &str) -> FsResult<Option<Entry>> {
@@ -60,15 +61,16 @@ impl Backend for RegistryBackend {
     }
 
     fn mkdir(&mut self, path: &str) -> FsResult<()> {
-        with_fs(self.handle, |fs| fs.mkdir(path).map_err(status_of)).map_err(restore_err)
+        with_fs_mutating(self.handle, |fs| fs.mkdir(path).map_err(status_of)).map_err(restore_err)
     }
 
     fn remove(&mut self, path: &str) -> FsResult<()> {
-        with_fs(self.handle, |fs| fs.remove(path).map_err(status_of)).map_err(restore_err)
+        with_fs_mutating(self.handle, |fs| fs.remove(path).map_err(status_of)).map_err(restore_err)
     }
 
     fn rename(&mut self, from: &str, to: &str) -> FsResult<()> {
-        with_fs(self.handle, |fs| fs.rename(from, to).map_err(status_of)).map_err(restore_err)
+        with_fs_mutating(self.handle, |fs| fs.rename(from, to).map_err(status_of))
+            .map_err(restore_err)
     }
 
     fn flush(&mut self) -> FsResult<()> {

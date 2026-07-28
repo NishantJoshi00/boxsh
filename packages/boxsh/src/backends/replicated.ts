@@ -83,6 +83,14 @@ export function replicatedBackend(options: ReplicatedBackendOptions): Replicated
     if (closed) throw new Error(`Filesystem "${name}" is closed.`);
   };
 
+  // The module pushes a signal when its journal becomes non-empty, which
+  // covers mutations that never touch this wrapper (shell redirects,
+  // in-module commands). The wrapper's own schedule() calls remain as the
+  // fallback for modules built without host notifications.
+  inner.wasm.instance.setDirtyListener((handle) => {
+    if (handle === inner.wasm.handle && !closed) schedule();
+  });
+
   const backend: StorageBackend & {
     wasm: WasmFsInfo;
     exportTar(): Uint8Array;

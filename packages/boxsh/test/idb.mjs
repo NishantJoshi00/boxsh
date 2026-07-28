@@ -126,6 +126,26 @@ if (!existsSync(commandsPath)) {
   console.log("idb: sandbox end-to-end OK");
 }
 
+// --- Rust-initiated persistence push: shell writes drain without flush ---
+// The shell and in-module commands mutate the filesystem inside wasm,
+// bypassing the backend wrapper entirely; the module's host_fs_dirty
+// signal must still get those writes scheduled for replication.
+if (existsSync(commandsPath)) {
+  const engine = await loadEngine({ commands: readFileSync(commandsPath) });
+  const b = await open("push", { flushDebounceMs: 20 });
+  const fs = await Filesystem.create({ backend: b });
+  const sb = new Sandbox({ fs, engine });
+  await sb.exec("echo pushed > /via-shell.txt && seq 1 3 | tee /via-tee.txt");
+  await sleep(250); // no flush(), no close(): the push must have scheduled the drain
+  const b2 = await open("push");
+  const fs2 = await Filesystem.create({ backend: b2 });
+  assert.equal(await fs2.readFile("/via-shell.txt", "utf-8"), "pushed\n");
+  assert.equal(await fs2.readFile("/via-tee.txt", "utf-8"), "1\n2\n3\n");
+  await b2.close();
+  await b.close();
+  console.log("idb: dirty-push persistence OK");
+}
+
 // --- migration: memory -> indexeddb -> memory via switchBackend ---
 {
   const fs = await Filesystem.create({ backend: memory() });

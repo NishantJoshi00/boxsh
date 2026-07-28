@@ -33,6 +33,11 @@ export interface BoxshInstance {
   exports: WebAssembly.Exports;
   /** Attach the command engine the module's `boxsh_host` imports call. */
   setHost(host: CommandHost | undefined): void;
+  /**
+   * Called when a filesystem's replication journal becomes non-empty —
+   * the module's signal that a persistence drain should be scheduled.
+   */
+  setDirtyListener(listener: ((handle: number) => void) | undefined): void;
 }
 
 /** Encode strings as the ABI's u32-length-prefixed list. */
@@ -113,10 +118,15 @@ export async function load(
   // whatever engine is attached via setHost; without one, commands fail
   // with 127 and the filesystem exports still work.
   let hostRef: CommandHost | undefined;
+  let dirtyListener: ((handle: number) => void) | undefined;
   let exports: Exports;
   const bytesAt = (ptr: number, len: number) =>
     new Uint8Array((memory as WebAssembly.Memory).buffer, ptr, len);
   const hostImports: Record<string, (...args: number[]) => number> = {
+    host_fs_dirty: (handle) => {
+      dirtyListener?.(handle);
+      return 0;
+    },
     host_command_knows: (ptr, len) => (hostRef?.knows(dec.decode(bytesAt(ptr, len))) ? 1 : 0),
     host_command_run: (argvPtr, argvLen, stdinPtr, stdinLen, envPtr, envLen, cwdPtr, cwdLen, cellPtr) => {
       const argv = decodePathList(bytesAt(argvPtr, argvLen).slice());
@@ -186,6 +196,9 @@ export async function load(
     exports: instance.exports,
     setHost: (host) => {
       hostRef = host;
+    },
+    setDirtyListener: (listener) => {
+      dirtyListener = listener;
     },
   };
 }

@@ -70,6 +70,47 @@ pub(crate) fn with_fs<T>(
     })
 }
 
+/// `host_fs_dirty(handle)`: the module tells the host "this filesystem has
+/// replication work" whenever the journal goes from empty to non-empty —
+/// Rust decides there is work; the host only schedules the pump. Covers
+/// every mutation path (exports, shell redirects, in-module commands), so
+/// persistence hosts never poll.
+#[cfg(all(target_arch = "wasm32", feature = "host-commands"))]
+mod dirty_host {
+    #[link(wasm_import_module = "boxsh_host")]
+    unsafe extern "C" {
+        pub fn host_fs_dirty(handle: i32);
+    }
+}
+
+fn notify_dirty(handle: i32) {
+    #[cfg(all(target_arch = "wasm32", feature = "host-commands"))]
+    unsafe {
+        dirty_host::host_fs_dirty(handle)
+    }
+    #[cfg(not(all(target_arch = "wasm32", feature = "host-commands")))]
+    let _ = handle;
+}
+
+/// `with_fs` for mutations: fires the dirty notification on the journal's
+/// empty → non-empty transition (after the registry borrow is released).
+pub(crate) fn with_fs_mutating<T>(
+    handle: i32,
+    f: impl FnOnce(&mut MemoryBackend) -> Result<T, i32>,
+) -> Result<T, i32> {
+    let mut became_dirty = false;
+    let result = with_fs(handle, |fs| {
+        let was_empty = fs.dirty_len() == 0;
+        let r = f(fs);
+        became_dirty = was_empty && fs.dirty_len() > 0;
+        r
+    });
+    if became_dirty {
+        notify_dirty(handle);
+    }
+    result
+}
+
 fn to_status(r: Result<(), i32>) -> i32 {
     match r {
         Ok(()) => OK,
@@ -219,7 +260,7 @@ pub unsafe extern "C" fn boxsh_fs_write(
     to_status((|| {
         let p = unsafe { str_arg(path, path_len) }?;
         let bytes = unsafe { bytes_arg(data, data_len) };
-        with_fs(handle, |fs| fs.write(p, bytes).map_err(|e| status_code(&e)))
+        with_fs_mutating(handle, |fs| fs.write(p, bytes).map_err(|e| status_code(&e)))
     })())
 }
 
@@ -277,7 +318,7 @@ pub unsafe extern "C" fn boxsh_fs_list(
 pub unsafe extern "C" fn boxsh_fs_mkdir(handle: i32, path: *const u8, path_len: usize) -> i32 {
     to_status((|| {
         let p = unsafe { str_arg(path, path_len) }?;
-        with_fs(handle, |fs| fs.mkdir(p).map_err(|e| status_code(&e)))
+        with_fs_mutating(handle, |fs| fs.mkdir(p).map_err(|e| status_code(&e)))
     })())
 }
 
@@ -287,7 +328,7 @@ pub unsafe extern "C" fn boxsh_fs_mkdir(handle: i32, path: *const u8, path_len: 
 pub unsafe extern "C" fn boxsh_fs_remove(handle: i32, path: *const u8, path_len: usize) -> i32 {
     to_status((|| {
         let p = unsafe { str_arg(path, path_len) }?;
-        with_fs(handle, |fs| fs.remove(p).map_err(|e| status_code(&e)))
+        with_fs_mutating(handle, |fs| fs.remove(p).map_err(|e| status_code(&e)))
     })())
 }
 
@@ -304,7 +345,7 @@ pub unsafe extern "C" fn boxsh_fs_rename(
     to_status((|| {
         let f = unsafe { str_arg(from, from_len) }?;
         let t = unsafe { str_arg(to, to_len) }?;
-        with_fs(handle, |fs| fs.rename(f, t).map_err(|e| status_code(&e)))
+        with_fs_mutating(handle, |fs| fs.rename(f, t).map_err(|e| status_code(&e)))
     })())
 }
 
@@ -372,7 +413,7 @@ pub unsafe extern "C" fn boxsh_fs_export_tar(handle: i32, out: *mut u8) -> i32 {
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn boxsh_fs_import_tar(handle: i32, tar: *const u8, tar_len: usize) -> i32 {
     let archive = unsafe { bytes_arg(tar, tar_len) };
-    to_status(with_fs(handle, |fs| {
+    to_status(with_fs_mutating(handle, |fs| {
         boxsh_fs::tar::import(fs, archive).map_err(|e| status_code(&e))
     }))
 }
