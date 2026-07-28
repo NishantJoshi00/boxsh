@@ -22,13 +22,7 @@ export interface ExecResult {
 
 export interface EngineModules {
   cold: WebAssembly.Module;
-  hot?: WebAssembly.Module;
 }
-
-/** Commands available through the optional optimized command module. */
-const HOT_COMMANDS = new Set([
-  "true", "false", "echo", "cat", "tee", "wc", "seq", "head", "sort", "grep",
-]);
 
 /** Commands available through the core command module. */
 const COLD_COMMANDS = new Set((
@@ -68,20 +62,26 @@ const concat = (chunks: Uint8Array[]): Uint8Array => {
 };
 
 export interface Engine {
-  run(argv: string[], stdin?: Uint8Array): ExecResult;
-  runCold(argv: string[], stdin?: Uint8Array): ExecResult;
+  run(argv: string[], stdin: Uint8Array, env: Record<string, string>, cwd: string): ExecResult;
   knows(command: string): boolean;
 }
 
+/**
+ * Executor for the uutils multicall module: a fresh instance per command,
+ * WASI shims mapped onto the virtual filesystem. The frequently used
+ * commands never reach this — they run inside the sandbox module itself
+ * (boxsh-commands); this is the long tail.
+ */
 export function createEngine(
   modules: EngineModules,
   backendRef: { current: StorageBackend },
-  session: { env: Record<string, string>; cwd: () => string },
 ): Engine {
   const dec = new TextDecoder();
   let ctx: Ctx = null as unknown as Ctx;
   let mem: WebAssembly.Memory = null as unknown as WebAssembly.Memory;
   let args: string[] = [];
+  let liveEnv: Record<string, string> = {};
+  let liveCwd = "/";
 
   const freshCtx = (stdin?: Uint8Array): Ctx => ({
     stdin: stdin ?? new Uint8Array(0),
@@ -107,7 +107,7 @@ export function createEngine(
   };
 
   const envPairs = () => {
-    const all = { ...session.env, PWD: session.cwd() };
+    const all = { ...liveEnv, PWD: liveCwd };
     return Object.entries(all).map(([k, v]) => `${k}=${v}`);
   };
 
@@ -359,70 +359,23 @@ export function createEngine(
     }),
   } as WebAssembly.Imports;
 
-  interface HotExports {
-    memory: WebAssembly.Memory;
-    _initialize?: () => void;
-    hot_alloc(len: number): number;
-    hot_free(ptr: number, len: number): void;
-    hot_run(ptr: number, len: number): number;
-    hot_chdir(ptr: number, len: number): number;
-  }
-
-  function runCold(argv: string[], stdin?: Uint8Array): ExecResult {
-    ctx = freshCtx(stdin);
-    args = [argv[0], ...argv];
-    const inst = new WebAssembly.Instance(modules.cold, imports);
-    mem = inst.exports.memory as WebAssembly.Memory;
-    let code = 0;
-    try {
-      (inst.exports._start as () => void)();
-    } catch (e) {
-      if (e instanceof ProcExit) code = e.code;
-      else throw e;
-    }
-    return { out: concat(ctx.stdout), err: concat(ctx.stderr), code };
-  }
-
-  let hot: HotExports | null = null;
-  let hotCwd = "";
-  function runHot(argv: string[], stdin?: Uint8Array): ExecResult {
-    if (!hot) {
-      ctx = freshCtx();
-      const inst = new WebAssembly.Instance(modules.hot as WebAssembly.Module, imports);
-      hot = inst.exports as unknown as HotExports;
-      mem = hot.memory;
-      hot._initialize?.();
-      hotCwd = "/";
-    }
-    const cwd = session.cwd();
-    ctx = freshCtx(stdin);
-    mem = hot.memory;
-    if (cwd !== hotCwd) {
-      const b = enc.encode(cwd);
-      const p = hot.hot_alloc(b.length);
-      new Uint8Array(hot.memory.buffer, p, b.length).set(b);
-      hot.hot_chdir(p, b.length);
-      hot.hot_free(p, b.length);
-      hotCwd = cwd;
-    }
-    const b = enc.encode(argv.join("\0"));
-    const p = hot.hot_alloc(b.length);
-    new Uint8Array(hot.memory.buffer, p, b.length).set(b);
-    let code: number;
-    try {
-      code = hot.hot_run(p, b.length);
-    } finally {
-      hot.hot_free(p, b.length);
-    }
-    return { out: concat(ctx.stdout), err: concat(ctx.stderr), code };
-  }
-
   return {
-    run(argv, stdin) {
-      if (modules.hot && HOT_COMMANDS.has(argv[0])) return runHot(argv, stdin);
-      return runCold(argv, stdin);
+    run(argv, stdin, env, cwd) {
+      liveEnv = env;
+      liveCwd = cwd;
+      ctx = freshCtx(stdin);
+      args = [argv[0], ...argv];
+      const inst = new WebAssembly.Instance(modules.cold, imports);
+      mem = inst.exports.memory as WebAssembly.Memory;
+      let code = 0;
+      try {
+        (inst.exports._start as () => void)();
+      } catch (e) {
+        if (e instanceof ProcExit) code = e.code;
+        else throw e;
+      }
+      return { out: concat(ctx.stdout), err: concat(ctx.stderr), code };
     },
-    runCold,
-    knows: (command) => HOT_COMMANDS.has(command) || COLD_COMMANDS.has(command),
+    knows: (command) => COLD_COMMANDS.has(command),
   };
 }

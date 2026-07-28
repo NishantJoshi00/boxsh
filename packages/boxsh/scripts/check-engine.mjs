@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 const p = (rel) => fileURLToPath(new URL(rel, import.meta.url));
 const WASM_MAGIC = [0x00, 0x61, 0x73, 0x6d];
 
-for (const rel of ["../engine/commands.wasm", "../engine/commands-optimized.wasm", "../engine/fs.wasm"]) {
+for (const rel of ["../engine/commands.wasm", "../engine/fs.wasm"]) {
   let bytes;
   try {
     bytes = readFileSync(p(rel));

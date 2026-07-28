@@ -15,13 +15,6 @@ const crates = [
     out: p("../engine/commands.wasm"),
   },
   {
-    manifest: p("../../../examples/playground/hot-demo/Cargo.toml"),
-    artifact: p(
-      "../../../examples/playground/hot-demo/target/wasm32-wasip1/release/hot_demo.wasm",
-    ),
-    out: p("../engine/commands-optimized.wasm"),
-  },
-  {
     manifest: p("../../../crates/boxsh-abi/Cargo.toml"),
     artifact: p("../../../target/wasm32-wasip1/release/boxsh_abi.wasm"),
     out: p("../engine/fs.wasm"),
@@ -36,11 +29,11 @@ const copyOnly = process.argv.includes("--copy-only");
 // wasm-opt levels chosen by measurement (2026-07-25, Node 22 bench):
 // cold: -Oz is size-neutral-perf, -2% gzip; (-O3 on higher opt-levels
 // regressed grep 3x — do not "upgrade" without re-benchmarking).
-// hot: -O3 on the opt-level-3+simd build: sort -32%, grep -50% vs z.
 crates[0].wasmOpt = "-Oz";
-crates[1].wasmOpt = "-O3";
-// fs module: not on a measured hot path; size wins.
-crates[2].wasmOpt = "-Oz";
+// sandbox module (fs + shell + in-module commands): the hot path runs here
+// now, but it's plain Rust on trait calls — -Oz measured fine; re-bench
+// before changing.
+crates[1].wasmOpt = "-Oz";
 
 const hasWasmOpt = spawnSync("wasm-opt", ["--version"], { stdio: "ignore" }).status === 0;
 if (!hasWasmOpt) {

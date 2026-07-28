@@ -26,10 +26,12 @@ pub struct CommandOutput {
 }
 
 /// Executes commands for the shell. The engine (wasm coreutils) implements
-/// this; tests use scripted doubles.
+/// this; tests use scripted doubles. `session` is the live state at the
+/// moment of invocation, so mid-script `cd` and `export` reach every
+/// command — not just the ones after the next exec boundary.
 pub trait CommandRunner {
     fn knows(&self, name: &str) -> bool;
-    fn run(&mut self, argv: &[String], stdin: &[u8]) -> CommandOutput;
+    fn run(&mut self, argv: &[String], stdin: &[u8], session: &Session) -> CommandOutput;
 }
 
 /// Insertion-ordered environment, matching JS object key order so the
@@ -704,7 +706,7 @@ impl<B: Backend + ?Sized, R: CommandRunner + ?Sized> Ctx<'_, B, R> {
                 let r = if let Some(b) = self.builtin(name, args) {
                     b
                 } else if self.runner.knows(name) {
-                    self.runner.run(&st.argv, &data)
+                    self.runner.run(&st.argv, &data, self.session)
                 } else {
                     CommandOutput {
                         out: Vec::new(),

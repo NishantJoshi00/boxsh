@@ -10,7 +10,6 @@ import { Filesystem, Sandbox, memory, wasmMemory, tarfile, loadEngine, BoxshErro
 const p = (rel) => fileURLToPath(new URL(rel, import.meta.url));
 const engine = await loadEngine({
   commands: readFileSync(p("../../../examples/playground/coreutils-demo/target/wasm32-wasip1/release/coreutils-demo.wasm")),
-  optimizedCommands: readFileSync(p("../../../examples/playground/hot-demo/target/wasm32-wasip1/release/hot_demo.wasm")),
 });
 const fsModule = readFileSync(p("../../../target/wasm32-wasip1/release/boxsh_abi.wasm"));
 

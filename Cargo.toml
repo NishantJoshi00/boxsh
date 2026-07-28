@@ -3,6 +3,7 @@ resolver = "3"
 members = [
     "crates/boxsh-core",
     "crates/boxsh-fs",
+    "crates/boxsh-commands",
     "crates/boxsh-shell",
     "crates/boxsh-utils",
     "crates/boxsh-abi",

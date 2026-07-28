@@ -9,7 +9,6 @@ import {
   type StorageBackend,
 } from "@boxsh/sandbox";
 import commandsUrl from "@boxsh/sandbox/engine/commands.wasm?url";
-import optimizedUrl from "@boxsh/sandbox/engine/commands-optimized.wasm?url";
 import { useStudio, type BackendKind } from "./store";
 import { DATA_ROOT, initializeSkillWorkspace } from "./skills";
 
@@ -59,7 +58,7 @@ export function initSandbox(): Promise<{ fs: Filesystem; engine: BoxshEngine }> 
       Filesystem.create({ backend }),
       loadEngine({
         commands: new URL(commandsUrl, window.location.href),
-        optimizedCommands: new URL(optimizedUrl, window.location.href),
+
       }),
     ]);
     await initializeSkillWorkspace(fs);

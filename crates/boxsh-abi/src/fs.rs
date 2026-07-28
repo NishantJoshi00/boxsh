@@ -357,8 +357,9 @@ pub unsafe extern "C" fn boxsh_fs_restore(
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn boxsh_fs_export_tar(handle: i32, out: *mut u8) -> i32 {
     to_status((|| {
-        let archive =
-            with_fs(handle, |fs| boxsh_fs::tar::export(fs).map_err(|e| status_code(&e)))?;
+        let archive = with_fs(handle, |fs| {
+            boxsh_fs::tar::export(fs).map_err(|e| status_code(&e))
+        })?;
         unsafe { emit(out, archive) };
         Ok(())
     })())
@@ -370,10 +371,10 @@ pub unsafe extern "C" fn boxsh_fs_export_tar(handle: i32, out: *mut u8) -> i32 {
 /// `tar` must be valid for `tar_len` bytes.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn boxsh_fs_import_tar(handle: i32, tar: *const u8, tar_len: usize) -> i32 {
-    to_status((|| {
-        let archive = unsafe { bytes_arg(tar, tar_len) };
-        with_fs(handle, |fs| boxsh_fs::tar::import(fs, archive).map_err(|e| status_code(&e)))
-    })())
+    let archive = unsafe { bytes_arg(tar, tar_len) };
+    to_status(with_fs(handle, |fs| {
+        boxsh_fs::tar::import(fs, archive).map_err(|e| status_code(&e))
+    }))
 }
 
 #[cfg(test)]
@@ -506,7 +507,10 @@ mod tests {
         assert_eq!(archive.len() % 512, 0);
 
         let r = boxsh_fs_new();
-        assert_eq!(unsafe { boxsh_fs_import_tar(r, archive.as_ptr(), archive.len()) }, OK);
+        assert_eq!(
+            unsafe { boxsh_fs_import_tar(r, archive.as_ptr(), archive.len()) },
+            OK
+        );
         assert_eq!(call_read(r, "d/f.txt").unwrap(), b"tarred");
         assert_eq!(boxsh_fs_drop(h), OK);
         assert_eq!(boxsh_fs_drop(r), OK);

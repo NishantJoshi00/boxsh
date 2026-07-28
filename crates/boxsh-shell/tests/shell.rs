@@ -17,7 +17,7 @@ impl CommandRunner for Utils {
         )
     }
 
-    fn run(&mut self, argv: &[String], stdin: &[u8]) -> CommandOutput {
+    fn run(&mut self, argv: &[String], stdin: &[u8], _session: &Session) -> CommandOutput {
         let ok = |out: String| CommandOutput {
             out: out.into_bytes(),
             err: Vec::new(),

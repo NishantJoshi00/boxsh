@@ -106,12 +106,19 @@ mod host {
         fn host_command_knows(name: *const u8, name_len: usize) -> i32;
         /// Writes four little-endian u32s into `cell`: stdout ptr/len and
         /// stderr ptr/len, allocated by the host via `boxsh_alloc` (this
-        /// module reclaims them). Returns the exit code.
+        /// module reclaims them). Returns the exit code. `env` is a
+        /// path-list of `KEY=VALUE` pairs and `cwd` the absolute working
+        /// directory — the live session at this moment, so mid-script `cd`
+        /// and `export` reach host-executed commands too.
         fn host_command_run(
             argv: *const u8,
             argv_len: usize,
             stdin: *const u8,
             stdin_len: usize,
+            env: *const u8,
+            env_len: usize,
+            cwd: *const u8,
+            cwd_len: usize,
             cell: *mut u8,
         ) -> i32;
     }
@@ -123,8 +130,14 @@ mod host {
             unsafe { host_command_knows(name.as_ptr(), name.len()) != 0 }
         }
 
-        fn run(&mut self, argv: &[String], stdin: &[u8]) -> CommandOutput {
+        fn run(&mut self, argv: &[String], stdin: &[u8], session: &Session) -> CommandOutput {
             let blob = encode_path_list(argv);
+            let env: Vec<String> = session
+                .env
+                .iter()
+                .map(|(k, v)| format!("{k}={v}"))
+                .collect();
+            let env_blob = encode_path_list(&env);
             let mut cell = [0u8; 16];
             let code = unsafe {
                 host_command_run(
@@ -132,6 +145,10 @@ mod host {
                     blob.len(),
                     stdin.as_ptr(),
                     stdin.len(),
+                    env_blob.as_ptr(),
+                    env_blob.len(),
+                    session.cwd.as_ptr(),
+                    session.cwd.len(),
                     cell.as_mut_ptr(),
                 )
             };
@@ -184,7 +201,7 @@ mod host {
             })
         }
 
-        fn run(&mut self, argv: &[String], stdin: &[u8]) -> CommandOutput {
+        fn run(&mut self, argv: &[String], stdin: &[u8], _session: &Session) -> CommandOutput {
             RUNNER.with(|r| {
                 r.borrow_mut()
                     .as_mut()
@@ -201,6 +218,37 @@ mod host {
 
 #[cfg(not(all(target_arch = "wasm32", feature = "host-commands")))]
 pub use host::set_test_runner;
+
+/// The command router: in-module commands first (boxsh-commands, running
+/// directly on the filesystem — no boundary), the host engine for the rest
+/// (the uutils multicall module).
+struct SandboxRunner {
+    handle: i32,
+    host: host::HostRunner,
+}
+
+impl CommandRunner for SandboxRunner {
+    fn knows(&self, name: &str) -> bool {
+        boxsh_commands::knows(name) || self.host.knows(name)
+    }
+
+    fn run(&mut self, argv: &[String], stdin: &[u8], session: &Session) -> CommandOutput {
+        let name = argv.first().map(String::as_str).unwrap_or("");
+        if boxsh_commands::knows(name) {
+            let mut backend = RegistryBackend {
+                handle: self.handle,
+            };
+            if let Some(o) = boxsh_commands::run(&mut backend, &session.cwd, argv, stdin) {
+                return CommandOutput {
+                    out: o.out,
+                    err: o.err,
+                    code: o.code,
+                };
+            }
+        }
+        self.host.run(argv, stdin, session)
+    }
+}
 
 // --- the export ------------------------------------------------------------
 
@@ -244,7 +292,11 @@ pub unsafe extern "C" fn boxsh_shell_exec(
         last_status,
     };
     let mut backend = RegistryBackend { handle: fs_handle };
-    let result = exec_script(&mut backend, &mut host::HostRunner, &mut session, script);
+    let mut runner = SandboxRunner {
+        handle: fs_handle,
+        host: host::HostRunner,
+    };
+    let result = exec_script(&mut backend, &mut runner, &mut session, script);
 
     let env_out: Vec<String> = session
         .env

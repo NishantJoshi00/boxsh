@@ -1,0 +1,14 @@
+[package]
+name = "boxsh-commands"
+description = "In-module commands: the boxsh hot path, running directly on the filesystem."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+# regex-lite (not regex) keeps grep small enough for the wasm size budget;
+# it covers the classic syntax. Everything else is std + boxsh-fs.
+[dependencies]
+boxsh-fs = { path = "../boxsh-fs" }
+regex-lite = "0.1"

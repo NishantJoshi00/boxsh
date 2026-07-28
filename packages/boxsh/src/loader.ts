@@ -12,10 +12,16 @@ export class ProcExit extends Error {
   }
 }
 
-/** Executes commands on behalf of the in-module shell. */
+/** Executes commands on behalf of the in-module shell. `env` and `cwd`
+ * are the live session at the moment of invocation. */
 export interface CommandHost {
   knows(name: string): boolean;
-  run(argv: string[], stdin: Uint8Array): { out: Uint8Array; err: Uint8Array; code: number };
+  run(
+    argv: string[],
+    stdin: Uint8Array,
+    env: Record<string, string>,
+    cwd: string,
+  ): { out: Uint8Array; err: Uint8Array; code: number };
 }
 
 export interface BoxshInstance {
@@ -91,6 +97,16 @@ export async function load(
     sched_yield() {
       return ESUCCESS;
     },
+    // std's HashMap seeds itself from the OS RNG on first use (grep's
+    // regex tables hit this); clocks are in the same always-available class.
+    random_get(ptr, len) {
+      crypto.getRandomValues(new Uint8Array((memory as WebAssembly.Memory).buffer, ptr, len));
+      return ESUCCESS;
+    },
+    clock_time_get(id, prec, outP) {
+      view().setBigUint64(outP, BigInt(Date.now()) * 1_000_000n, true);
+      return ESUCCESS;
+    },
   };
 
   // Command engine trampolines: the module's `boxsh_host` imports call
@@ -102,11 +118,17 @@ export async function load(
     new Uint8Array((memory as WebAssembly.Memory).buffer, ptr, len);
   const hostImports: Record<string, (...args: number[]) => number> = {
     host_command_knows: (ptr, len) => (hostRef?.knows(dec.decode(bytesAt(ptr, len))) ? 1 : 0),
-    host_command_run: (argvPtr, argvLen, stdinPtr, stdinLen, cellPtr) => {
+    host_command_run: (argvPtr, argvLen, stdinPtr, stdinLen, envPtr, envLen, cwdPtr, cwdLen, cellPtr) => {
       const argv = decodePathList(bytesAt(argvPtr, argvLen).slice());
       const stdin = bytesAt(stdinPtr, stdinLen).slice();
+      const env: Record<string, string> = {};
+      for (const entry of decodePathList(bytesAt(envPtr, envLen).slice())) {
+        const eq = entry.indexOf("=");
+        if (eq > 0) env[entry.slice(0, eq)] = entry.slice(eq + 1);
+      }
+      const cwd = dec.decode(bytesAt(cwdPtr, cwdLen));
       const r = hostRef
-        ? hostRef.run(argv, stdin)
+        ? hostRef.run(argv, stdin, env, cwd)
         : {
             out: new Uint8Array(0),
             err: enc.encode(`boxsh: ${argv[0] ?? ""}: no command engine attached\n`),

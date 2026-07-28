@@ -55,27 +55,20 @@ type ShellExports = {
 };
 
 /**
- * Load command modules. With no arguments, loads the modules bundled with
+ * Load the command module. With no arguments, loads the module bundled with
  * the package (in Node directly from disk; in browsers via fetch — bundlers
- * that understand `new URL(..., import.meta.url)` serve them as assets).
- * Pass explicit URLs or buffers to load from a CDN or custom build instead.
+ * that understand `new URL(..., import.meta.url)` serve it as an asset).
+ * Pass an explicit URL or buffer to load from a CDN or custom build.
+ *
+ * `optimizedCommands` is accepted for compatibility and ignored: the
+ * optimized commands now live inside the sandbox module itself.
  */
 export async function loadEngine(source?: {
   commands: EngineSource;
   optimizedCommands?: EngineSource;
 }): Promise<BoxshEngine> {
-  const compile = compileModule;
-  const src = source ?? {
-    commands: new URL("../engine/commands.wasm", import.meta.url),
-    optimizedCommands: new URL("../engine/commands-optimized.wasm", import.meta.url),
-  };
-  return {
-    cold: await compile(src.commands),
-    hot:
-      src.optimizedCommands !== undefined
-        ? await compile(src.optimizedCommands)
-        : undefined,
-  } as unknown as BoxshEngine;
+  const src = source ?? { commands: new URL("../engine/commands.wasm", import.meta.url) };
+  return { cold: await compileModule(src.commands) } as unknown as BoxshEngine;
 }
 
 export class Sandbox {
@@ -97,11 +90,11 @@ export class Sandbox {
     };
     this.cwdState = options.cwd ?? "/";
     this.fs = options.fs;
-    const engine = createEngine(options.engine as unknown as EngineModules, options.fs.backendRef, {
-      env: this.env,
-      cwd: () => this.cwdState,
-    });
-    this.host = { knows: (name) => engine.knows(name), run: (argv, stdin) => engine.run(argv, stdin) };
+    const engine = createEngine(options.engine as unknown as EngineModules, options.fs.backendRef);
+    this.host = {
+      knows: (name) => engine.knows(name),
+      run: (argv, stdin, env, cwd) => engine.run(argv, stdin, env, cwd),
+    };
   }
 
   get cwd(): string {

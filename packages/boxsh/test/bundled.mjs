@@ -15,7 +15,7 @@ const r = await sb.exec("cat message.txt | wc -l");
 assert.equal(r.stdout.trim(), "2");
 assert.equal(r.code, 0);
 
-// optimized module is wired in too (grep is hot-only routed)
+// grep runs inside the sandbox module
 const g = await sb.exec("grep from message.txt");
 assert.equal(g.stdout, "from boxsh\n");
 

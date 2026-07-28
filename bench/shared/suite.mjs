@@ -37,14 +37,13 @@ export async function runSuite({ quick = false } = {}) {
 
   // --- startup: compile the packaged engine ---
   const coldBytes = readFileSync(p("../../packages/boxsh/engine/commands.wasm"));
-  const hotBytes = readFileSync(p("../../packages/boxsh/engine/commands-optimized.wasm"));
   const fsBytes = readFileSync(p("../../packages/boxsh/engine/fs.wasm"));
   let t = performance.now();
-  const engine = await loadEngine({ commands: coldBytes, optimizedCommands: hotBytes });
+  const engine = await loadEngine({ commands: coldBytes });
   row(
     "engine compile",
     `${fmt(performance.now() - t)} ms`,
-    `${((coldBytes.length + hotBytes.length) / 1048576).toFixed(1)} MB of modules`,
+    `${(coldBytes.length / 1048576).toFixed(1)} MB of modules`,
   );
 
   // Exec rows run on the Rust filesystem — the blessed path; memory()

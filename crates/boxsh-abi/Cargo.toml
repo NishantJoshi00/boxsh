@@ -11,6 +11,7 @@ repository.workspace = true
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
+boxsh-commands = { path = "../boxsh-commands" }
 boxsh-core = { path = "../boxsh-core" }
 boxsh-fs = { path = "../boxsh-fs" }
 boxsh-shell = { path = "../boxsh-shell" }
