@@ -1,11 +1,21 @@
 const WASI_MODULE = "wasi_snapshot_preview1";
+const HOST_MODULE = "boxsh_host";
 const ESUCCESS = 0;
 const ENOSYS = 52;
+
+const enc = new TextEncoder();
+const dec = new TextDecoder();
 
 export class ProcExit extends Error {
   constructor(readonly code: number) {
     super(`Process exited with code ${code}`);
   }
+}
+
+/** Executes commands on behalf of the in-module shell. */
+export interface CommandHost {
+  knows(name: string): boolean;
+  run(argv: string[], stdin: Uint8Array): { out: Uint8Array; err: Uint8Array; code: number };
 }
 
 export interface BoxshInstance {
@@ -15,6 +25,36 @@ export interface BoxshInstance {
   memory: WebAssembly.Memory;
   /** Raw module exports, for feature-detected extensions of the base ABI. */
   exports: WebAssembly.Exports;
+  /** Attach the command engine the module's `boxsh_host` imports call. */
+  setHost(host: CommandHost | undefined): void;
+}
+
+/** Encode strings as the ABI's u32-length-prefixed list. */
+export function encodePathList(items: string[]): Uint8Array {
+  const encoded = items.map((s) => enc.encode(s));
+  const out = new Uint8Array(encoded.reduce((n, b) => n + 4 + b.length, 0));
+  const v = new DataView(out.buffer);
+  let at = 0;
+  for (const b of encoded) {
+    v.setUint32(at, b.length, true);
+    out.set(b, at + 4);
+    at += 4 + b.length;
+  }
+  return out;
+}
+
+/** Decode the ABI's u32-length-prefixed string list. */
+export function decodePathList(bytes: Uint8Array): string[] {
+  const v = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const out: string[] = [];
+  let at = 0;
+  while (at < bytes.length) {
+    const len = v.getUint32(at, true);
+    at += 4;
+    out.push(dec.decode(bytes.subarray(at, at + len)));
+    at += len;
+  }
+  return out;
 }
 
 export const SUPPORTED_ABI_VERSION = 1;
@@ -53,20 +93,59 @@ export async function load(
     },
   };
 
+  // Command engine trampolines: the module's `boxsh_host` imports call
+  // whatever engine is attached via setHost; without one, commands fail
+  // with 127 and the filesystem exports still work.
+  let hostRef: CommandHost | undefined;
+  let exports: Exports;
+  const bytesAt = (ptr: number, len: number) =>
+    new Uint8Array((memory as WebAssembly.Memory).buffer, ptr, len);
+  const hostImports: Record<string, (...args: number[]) => number> = {
+    host_command_knows: (ptr, len) => (hostRef?.knows(dec.decode(bytesAt(ptr, len))) ? 1 : 0),
+    host_command_run: (argvPtr, argvLen, stdinPtr, stdinLen, cellPtr) => {
+      const argv = decodePathList(bytesAt(argvPtr, argvLen).slice());
+      const stdin = bytesAt(stdinPtr, stdinLen).slice();
+      const r = hostRef
+        ? hostRef.run(argv, stdin)
+        : {
+            out: new Uint8Array(0),
+            err: enc.encode(`boxsh: ${argv[0] ?? ""}: no command engine attached\n`),
+            code: 127,
+          };
+      const stage = (b: Uint8Array): number => {
+        if (b.length === 0) return 0;
+        const ptr = exports.boxsh_alloc(b.length);
+        bytesAt(ptr, b.length).set(b);
+        return ptr;
+      };
+      const outPtr = stage(r.out);
+      const errPtr = stage(r.err);
+      const v = view();
+      v.setUint32(cellPtr, outPtr, true);
+      v.setUint32(cellPtr + 4, r.out.length, true);
+      v.setUint32(cellPtr + 8, errPtr, true);
+      v.setUint32(cellPtr + 12, r.err.length, true);
+      return r.code;
+    },
+  };
+
   const wasiImports: Record<string, (...args: number[]) => number> = {};
+  const hostModule: Record<string, (...args: number[]) => number> = {};
   for (const im of WebAssembly.Module.imports(module)) {
-    if (im.module !== WASI_MODULE) {
-      throw new Error(
-        `Incompatible boxsh engine: unsupported import ${im.module}.${im.name}`,
-      );
+    if (im.module === WASI_MODULE) {
+      wasiImports[im.name] = implemented[im.name] ?? (() => ENOSYS);
+    } else if (im.module === HOST_MODULE) {
+      hostModule[im.name] = hostImports[im.name] ?? (() => 0);
+    } else {
+      throw new Error(`Incompatible boxsh engine: unsupported import ${im.module}.${im.name}`);
     }
-    wasiImports[im.name] = implemented[im.name] ?? (() => ENOSYS);
   }
 
   const instance = new WebAssembly.Instance(module, {
     [WASI_MODULE]: wasiImports,
+    [HOST_MODULE]: hostModule,
   });
-  const exports = instance.exports as Exports;
+  exports = instance.exports as Exports;
   memory = exports.memory;
   exports._initialize?.();
 
@@ -83,6 +162,9 @@ export async function load(
     free: (ptr, len) => exports.boxsh_free(ptr, len),
     memory: exports.memory,
     exports: instance.exports,
+    setHost: (host) => {
+      hostRef = host;
+    },
   };
 }
 

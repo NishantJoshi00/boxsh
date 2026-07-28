@@ -45,12 +45,20 @@ interface FsExports {
   ): number;
 }
 
+/** Wiring the in-module shell needs to reach a backend's filesystem. */
+export interface WasmFsInfo {
+  instance: BoxshInstance;
+  handle: number;
+}
+
 /** A StorageBackend whose state lives in a wasm filesystem instance. */
 export interface WasmFsBackend extends StorageBackend {
   /** Drain the replication journal (see boxsh-fs DESIGN.md). */
   takeDirty(): string[];
   /** Recreate a node during hydration; `null` data restores a directory. */
   restore(path: string, mtime: number, data: Uint8Array | null): void;
+  /** @internal The Sandbox binds its shell to this. */
+  readonly wasm: WasmFsInfo;
 }
 
 export interface WasmMemoryBackendOptions {
@@ -140,6 +148,7 @@ export function wasmFilesystem(instance: BoxshInstance): WasmFsBackend {
 
   return {
     kind: "wasm",
+    wasm: { instance, handle },
 
     read(path) {
       return withPath(path, (p, l) => {

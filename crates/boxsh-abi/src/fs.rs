@@ -38,7 +38,7 @@ pub const ERR_CORRUPT: i32 = -8;
 pub const ERR_BAD_HANDLE: i32 = -9;
 pub const ERR_UTF8: i32 = -10;
 
-fn status(e: &Error) -> i32 {
+pub(crate) fn status_code(e: &Error) -> i32 {
     match e {
         Error::NotFound => ERR_NOT_FOUND,
         Error::Exists => ERR_EXISTS,
@@ -55,7 +55,10 @@ thread_local! {
     static FILESYSTEMS: RefCell<Vec<Option<MemoryBackend>>> = const { RefCell::new(Vec::new()) };
 }
 
-fn with_fs<T>(handle: i32, f: impl FnOnce(&mut MemoryBackend) -> Result<T, i32>) -> Result<T, i32> {
+pub(crate) fn with_fs<T>(
+    handle: i32,
+    f: impl FnOnce(&mut MemoryBackend) -> Result<T, i32>,
+) -> Result<T, i32> {
     FILESYSTEMS.with(|cell| {
         let mut registry = cell.borrow_mut();
         let fs = usize::try_from(handle)
@@ -76,7 +79,7 @@ fn to_status(r: Result<(), i32>) -> i32 {
 
 /// # Safety
 /// `ptr` must be valid for `len` bytes (or `len` must be 0).
-unsafe fn bytes_arg<'a>(ptr: *const u8, len: usize) -> &'a [u8] {
+pub(crate) unsafe fn bytes_arg<'a>(ptr: *const u8, len: usize) -> &'a [u8] {
     if len == 0 {
         &[]
     } else {
@@ -86,7 +89,7 @@ unsafe fn bytes_arg<'a>(ptr: *const u8, len: usize) -> &'a [u8] {
 
 /// # Safety
 /// `ptr` must be valid for `len` bytes (or `len` must be 0).
-unsafe fn str_arg<'a>(ptr: *const u8, len: usize) -> Result<&'a str, i32> {
+pub(crate) unsafe fn str_arg<'a>(ptr: *const u8, len: usize) -> Result<&'a str, i32> {
     core::str::from_utf8(unsafe { bytes_arg(ptr, len) }).map_err(|_| ERR_UTF8)
 }
 
@@ -98,7 +101,7 @@ unsafe fn str_arg<'a>(ptr: *const u8, len: usize) -> Result<&'a str, i32> {
 /// # Safety
 /// `out` must be valid for two pointer-width writable words. No alignment
 /// is required.
-unsafe fn emit(out: *mut u8, bytes: Vec<u8>) {
+pub(crate) unsafe fn emit(out: *mut u8, bytes: Vec<u8>) {
     let len = bytes.len();
     let ptr = if bytes.is_empty() {
         0usize
@@ -129,7 +132,7 @@ unsafe fn write_u64(at: *mut u8, v: u64) {
     unsafe { at.cast::<[u8; 8]>().write_unaligned(v.to_le_bytes()) }
 }
 
-fn encode_path_list(paths: &[String]) -> Vec<u8> {
+pub(crate) fn encode_path_list(paths: &[String]) -> Vec<u8> {
     let total = paths.iter().map(|p| 4 + p.len()).sum();
     let mut out = Vec::with_capacity(total);
     for p in paths {
@@ -197,7 +200,7 @@ pub unsafe extern "C" fn boxsh_fs_read(
 ) -> i32 {
     to_status((|| {
         let p = unsafe { str_arg(path, path_len) }?;
-        let data = with_fs(handle, |fs| fs.read(p).map_err(|e| status(&e)))?;
+        let data = with_fs(handle, |fs| fs.read(p).map_err(|e| status_code(&e)))?;
         unsafe { emit(out, data) };
         Ok(())
     })())
@@ -216,7 +219,7 @@ pub unsafe extern "C" fn boxsh_fs_write(
     to_status((|| {
         let p = unsafe { str_arg(path, path_len) }?;
         let bytes = unsafe { bytes_arg(data, data_len) };
-        with_fs(handle, |fs| fs.write(p, bytes).map_err(|e| status(&e)))
+        with_fs(handle, |fs| fs.write(p, bytes).map_err(|e| status_code(&e)))
     })())
 }
 
@@ -231,7 +234,7 @@ pub unsafe extern "C" fn boxsh_fs_entry(
 ) -> i32 {
     to_status((|| {
         let p = unsafe { str_arg(path, path_len) }?;
-        let entry = with_fs(handle, |fs| fs.entry(p).map_err(|e| status(&e)))?;
+        let entry = with_fs(handle, |fs| fs.entry(p).map_err(|e| status_code(&e)))?;
         let (kind, size, mtime) = match entry {
             None => (0, 0, 0),
             Some(e) => {
@@ -262,7 +265,7 @@ pub unsafe extern "C" fn boxsh_fs_list(
 ) -> i32 {
     to_status((|| {
         let p = unsafe { str_arg(path, path_len) }?;
-        let names = with_fs(handle, |fs| fs.list(p).map_err(|e| status(&e)))?;
+        let names = with_fs(handle, |fs| fs.list(p).map_err(|e| status_code(&e)))?;
         unsafe { emit(out, encode_path_list(&names)) };
         Ok(())
     })())
@@ -274,7 +277,7 @@ pub unsafe extern "C" fn boxsh_fs_list(
 pub unsafe extern "C" fn boxsh_fs_mkdir(handle: i32, path: *const u8, path_len: usize) -> i32 {
     to_status((|| {
         let p = unsafe { str_arg(path, path_len) }?;
-        with_fs(handle, |fs| fs.mkdir(p).map_err(|e| status(&e)))
+        with_fs(handle, |fs| fs.mkdir(p).map_err(|e| status_code(&e)))
     })())
 }
 
@@ -284,7 +287,7 @@ pub unsafe extern "C" fn boxsh_fs_mkdir(handle: i32, path: *const u8, path_len: 
 pub unsafe extern "C" fn boxsh_fs_remove(handle: i32, path: *const u8, path_len: usize) -> i32 {
     to_status((|| {
         let p = unsafe { str_arg(path, path_len) }?;
-        with_fs(handle, |fs| fs.remove(p).map_err(|e| status(&e)))
+        with_fs(handle, |fs| fs.remove(p).map_err(|e| status_code(&e)))
     })())
 }
 
@@ -301,7 +304,7 @@ pub unsafe extern "C" fn boxsh_fs_rename(
     to_status((|| {
         let f = unsafe { str_arg(from, from_len) }?;
         let t = unsafe { str_arg(to, to_len) }?;
-        with_fs(handle, |fs| fs.rename(f, t).map_err(|e| status(&e)))
+        with_fs(handle, |fs| fs.rename(f, t).map_err(|e| status_code(&e)))
     })())
 }
 
@@ -342,7 +345,7 @@ pub unsafe extern "C" fn boxsh_fs_restore(
             Some(unsafe { bytes_arg(data, data_len) })
         };
         with_fs(handle, |fs| {
-            fs.restore(p, mtime, bytes).map_err(|e| status(&e))
+            fs.restore(p, mtime, bytes).map_err(|e| status_code(&e))
         })
     })())
 }

@@ -1,19 +1,21 @@
 // Public API test: Filesystem + Sandbox against the real wasm engine.
 // Run after: cargo build --release --target wasm32-wasip1 (both demo crates)
+//        and: cargo build --release --target wasm32-wasip1 -p boxsh-abi --features host-commands
 //        and: npm run build
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import assert from "node:assert/strict";
-import { Filesystem, Sandbox, memory, loadEngine, BoxshError } from "../dist/index.js";
+import { Filesystem, Sandbox, memory, wasmMemory, loadEngine, BoxshError } from "../dist/index.js";
 
 const p = (rel) => fileURLToPath(new URL(rel, import.meta.url));
 const engine = await loadEngine({
   commands: readFileSync(p("../../../examples/playground/coreutils-demo/target/wasm32-wasip1/release/coreutils-demo.wasm")),
   optimizedCommands: readFileSync(p("../../../examples/playground/hot-demo/target/wasm32-wasip1/release/hot_demo.wasm")),
 });
+const fsModule = readFileSync(p("../../../target/wasm32-wasip1/release/boxsh_abi.wasm"));
 
-// --- Filesystem basics ---
-const fs = await Filesystem.create({ backend: memory() });
+// --- Filesystem basics (on the Rust filesystem) ---
+const fs = await Filesystem.create({ backend: await wasmMemory({ module: fsModule }) });
 await fs.mkdir("/src/deep", { recursive: true });
 await fs.writeFile("/src/hello.txt", "hello boxsh\n");
 assert.equal(await fs.readFile("/src/hello.txt", "utf-8"), "hello boxsh\n");
@@ -76,9 +78,14 @@ await fs2.import(tar);
 assert.equal(await fs2.readFile("/src/renamed.txt", "utf-8"), "hello boxsh\n");
 assert.deepEqual(await fs2.readFile("/src/blob.bin"), bin);
 
+// switchBackend to the TS map: Filesystem keeps working; the Sandbox
+// refuses with an actionable error (the shell lives in the wasm module).
 await fs.switchBackend(memory());
 assert.equal(await fs.readFile("/src/renamed.txt", "utf-8"), "hello boxsh\n");
-r = await sb.exec("cat /src/renamed.txt"); // sandbox follows the switch
+await assert.rejects(() => sb.exec("cat /src/renamed.txt"), /wasm backend/);
+// And back: the sandbox follows the switch.
+await fs.switchBackend(await wasmMemory({ module: fsModule }));
+r = await sb.exec("cat /src/renamed.txt");
 assert.equal(r.stdout, "hello boxsh\n");
 
 console.log("api OK: filesystem, sandbox, heredocs, pipes, tar, switchBackend");

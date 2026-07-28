@@ -1,0 +1,13 @@
+[package]
+name = "boxsh-shell"
+description = "The boxsh shell language: tokenizing, pipes, redirects, heredocs, loops."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+# boxsh-fs only — no external dependencies (D10 discipline), no regex crate:
+# the scanners are hand-rolled. Must build unchanged on wasm32-wasip1.
+[dependencies]
+boxsh-fs = { path = "../boxsh-fs" }

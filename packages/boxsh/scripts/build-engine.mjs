@@ -25,6 +25,9 @@ const crates = [
     manifest: p("../../../crates/boxsh-abi/Cargo.toml"),
     artifact: p("../../../target/wasm32-wasip1/release/boxsh_abi.wasm"),
     out: p("../engine/fs.wasm"),
+    // The shipped module needs the shell's command imports; test builds
+    // leave the feature off so plain WASI runners can instantiate.
+    features: "host-commands",
   },
 ];
 
@@ -45,13 +48,11 @@ if (!hasWasmOpt) {
 }
 
 mkdirSync(p("../engine"), { recursive: true });
-for (const { manifest, artifact, out, wasmOpt } of crates) {
+for (const { manifest, artifact, out, wasmOpt, features } of crates) {
   if (!copyOnly) {
-    const r = spawnSync(
-      "cargo",
-      ["build", "--release", "--target", "wasm32-wasip1", "--manifest-path", manifest],
-      { stdio: "inherit" },
-    );
+    const args = ["build", "--release", "--target", "wasm32-wasip1", "--manifest-path", manifest];
+    if (features) args.push("--features", features);
+    const r = spawnSync("cargo", args, { stdio: "inherit" });
     if (r.status !== 0) process.exit(r.status ?? 1);
   }
   if (hasWasmOpt) {

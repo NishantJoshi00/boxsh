@@ -3,7 +3,7 @@
 // targets only store batches. Used by the indexeddb and opfs backends; the
 // replication contract lives in boxsh-fs DESIGN.md.
 import type { BackendEntry, StorageBackend } from "../backend.js";
-import type { WasmFsBackend } from "./wasmfs.js";
+import type { WasmFsBackend, WasmFsInfo } from "./wasmfs.js";
 
 export interface ReplicationBatchItem {
   path: string;
@@ -83,8 +83,9 @@ export function replicatedBackend(options: ReplicatedBackendOptions): Replicated
     if (closed) throw new Error(`Filesystem "${name}" is closed.`);
   };
 
-  const backend: StorageBackend = {
+  const backend: StorageBackend & { wasm: WasmFsInfo } = {
     kind,
+    wasm: inner.wasm,
 
     read(path) {
       assertOpen();

@@ -1,6 +1,12 @@
 [workspace]
 resolver = "3"
-members = ["crates/boxsh-core", "crates/boxsh-fs", "crates/boxsh-utils", "crates/boxsh-abi"]
+members = [
+    "crates/boxsh-core",
+    "crates/boxsh-fs",
+    "crates/boxsh-shell",
+    "crates/boxsh-utils",
+    "crates/boxsh-abi",
+]
 
 [workspace.package]
 version = "0.0.1"

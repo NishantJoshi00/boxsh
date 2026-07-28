@@ -38,7 +38,7 @@ jobs:
       - name: Unit tests on wasm32-wasip1 (invariant #10)
         run: cargo test --workspace --target wasm32-wasip1
       - name: Build engine artifact
-        run: cargo build --release --target wasm32-wasip1 -p boxsh-abi
+        run: cargo build --release --target wasm32-wasip1 -p boxsh-abi --features host-commands
       - name: Loader smoke test through the real artifact
         working-directory: packages/boxsh
         run: |
@@ -49,11 +49,48 @@ jobs:
         working-directory: packages/boxsh
         run: node test/idb.mjs
 
+  # The Node suite exercises the replication scheduler against fake-indexeddb.
+  # This job runs the real IndexedDB and OPFS storage calls in Chromium —
+  # persistence across a page reload, and cross-tab Web Lock contention.
+  test-browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build the filesystem wasm module
+        run: cargo build --release --target wasm32-wasip1 -p boxsh-abi --features host-commands
+      - name: Stage engine/fs.wasm
+        # The browser backends need only the filesystem module. The command
+        # modules come from demo crates this job deliberately does not build,
+        # and scripts/build-engine.mjs insists on all three — so copy the one.
+        run: |
+          mkdir -p packages/boxsh/engine
+          cp target/wasm32-wasip1/release/boxsh_abi.wasm packages/boxsh/engine/fs.wasm
+      - name: Build the package
+        working-directory: packages/boxsh
+        run: |
+          npm ci
+          npm run build
+      - name: Install Chromium
+        working-directory: packages/boxsh
+        run: npx playwright install chromium --with-deps
+      - name: IndexedDB and OPFS backends in a real browser
+        working-directory: packages/boxsh
+        run: npm run test:browser
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-traces
+          path: packages/boxsh/test-results/
+          retention-days: 7
+
   size-budget:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: cargo build --release --target wasm32-wasip1 -p boxsh-abi
+      - run: cargo build --release --target wasm32-wasip1 -p boxsh-abi --features host-commands
       - name: Check gzip size against budget
         run: |
           gzip -9 -c target/wasm32-wasip1/release/boxsh_abi.wasm > boxsh_abi.wasm.gz

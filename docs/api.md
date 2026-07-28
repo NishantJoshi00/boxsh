@@ -233,7 +233,12 @@ delete sandbox.env.DEBUG;
 
 ## Storage backends
 
-`memory()` creates the built-in non-persistent backend.
+`wasmMemory()` creates the standard non-persistent backend — the filesystem
+lives inside the boxsh wasm module, the same one the persistent backends
+build on. `memory()` is a lightweight TypeScript-map alternative for direct
+`Filesystem` use; a `Sandbox` requires a wasm-backed filesystem
+(`wasmMemory`, `indexeddb`, or `opfs`) because the shell itself runs inside
+the module.
 
 ### `indexeddb` (browser persistence)
 

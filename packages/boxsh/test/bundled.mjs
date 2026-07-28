@@ -1,11 +1,12 @@
-// Packaging test: zero-arg loadEngine() finds the bundled engine modules.
+// Packaging test: zero-arg loadEngine() and zero-config wasmMemory() find
+// the bundled engine modules (commands + filesystem/shell).
 // Run after: npm run build:engine (or build-engine.mjs --copy-only)
 import assert from "node:assert/strict";
-import { Filesystem, Sandbox, memory, loadEngine } from "../dist/index.js";
+import { Filesystem, Sandbox, wasmMemory, loadEngine } from "../dist/index.js";
 
 const engine = await loadEngine();
 
-const fs = await Filesystem.create({ backend: memory() });
+const fs = await Filesystem.create({ backend: await wasmMemory() });
 await fs.mkdir("/workspace");
 await fs.writeFile("/workspace/message.txt", "hello\nfrom boxsh\n");
 

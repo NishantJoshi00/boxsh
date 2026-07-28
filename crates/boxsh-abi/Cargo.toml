@@ -13,4 +13,12 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 boxsh-core = { path = "../boxsh-core" }
 boxsh-fs = { path = "../boxsh-fs" }
+boxsh-shell = { path = "../boxsh-shell" }
 boxsh-utils = { path = "../boxsh-utils" }
+
+[features]
+# Declare the `boxsh_host` command imports. Artifact builds turn this on;
+# it defaults off so test builds instantiate under a plain WASI runner
+# (a module with unresolved host imports cannot) and use the registry
+# runner in shell.rs instead.
+host-commands = []

@@ -47,7 +47,10 @@ export async function runSuite({ quick = false } = {}) {
     `${((coldBytes.length + hotBytes.length) / 1048576).toFixed(1)} MB of modules`,
   );
 
-  const newSandbox = async (backend = memory()) => {
+  // Exec rows run on the Rust filesystem — the blessed path; memory()
+  // appears only in the micro-op boundary comparison below.
+  const newSandbox = async (backend) => {
+    backend ??= await wasmMemory({ module: fsBytes });
     const fs = await Filesystem.create({ backend });
     return { fs, sb: new Sandbox({ fs, engine }) };
   };

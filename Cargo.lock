@@ -8,6 +8,7 @@ version = "0.0.1"
 dependencies = [
  "boxsh-core",
  "boxsh-fs",
+ "boxsh-shell",
  "boxsh-utils",
 ]
 
@@ -18,6 +19,13 @@ version = "0.0.1"
 [[package]]
 name = "boxsh-fs"
 version = "0.0.1"
+
+[[package]]
+name = "boxsh-shell"
+version = "0.0.1"
+dependencies = [
+ "boxsh-fs",
+]
 
 [[package]]
 name = "boxsh-utils"

@@ -1,6 +1,7 @@
 //! Functions used to load and exchange data with boxsh modules.
 
 pub mod fs;
+pub mod shell;
 
 /// Version of the exported functions.
 ///
