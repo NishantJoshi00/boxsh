@@ -41,6 +41,7 @@ export interface SandboxOptions {
 type EngineSource = ModuleSource;
 
 type ShellExports = {
+  boxsh_fs_set_time?: (handle: number, nowMs: bigint) => number;
   boxsh_shell_exec?: (
     handle: number,
     env: number,
@@ -128,6 +129,9 @@ export class Sandbox {
       );
     }
     instance.setHost(this.host);
+    // The module has no clock; stamp it so shell/command writes carry real
+    // mtimes (direct backend mutations stamp on their own path).
+    ex.boxsh_fs_set_time?.(handle, BigInt(Date.now()));
 
     const bytes = () => new Uint8Array(instance.memory.buffer);
     const view = () => new DataView(instance.memory.buffer);

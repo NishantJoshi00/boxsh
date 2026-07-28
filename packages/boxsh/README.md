@@ -17,10 +17,10 @@ boxsh requires Node.js 20 or newer.
 ## Quick start
 
 ```js
-import { Filesystem, Sandbox, loadEngine, memory } from "@boxsh/sandbox";
+import { Filesystem, Sandbox, loadEngine, wasmMemory } from "@boxsh/sandbox";
 
 const engine = await loadEngine();
-const filesystem = await Filesystem.create({ backend: memory() });
+const filesystem = await Filesystem.create({ backend: await wasmMemory() });
 
 await filesystem.mkdir("/workspace");
 await filesystem.writeFile(
@@ -58,8 +58,10 @@ exceptions.
 - Typed filesystem errors
 - Node.js and browser support
 
-The built-in `memory()` backend is non-persistent. Its contents last for the
-lifetime of the JavaScript process or browser tab.
+The standard `wasmMemory()` backend is non-persistent — contents last for
+the lifetime of the process or tab. In browsers, `indexeddb()` and `opfs()`
+persist the same filesystem across reloads, and `tarfile()` opens and
+snapshots workspaces as tar archives.
 
 ## Browser support
 
@@ -69,7 +71,6 @@ modules as assets. To load them from a CDN or another location instead:
 ```js
 const engine = await loadEngine({
   commands: "https://cdn.example.com/boxsh/commands.wasm",
-  optimizedCommands: "https://cdn.example.com/boxsh/commands-optimized.wasm",
 });
 ```
 

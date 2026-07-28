@@ -65,6 +65,12 @@ assert.match(r.stderr, /command not found/);
 r = await sb.exec("grep -c boxsh /src/renamed.txt");
 assert.equal(r.stdout.trim(), "1");
 
+// shell writes carry real clock time (regression: the module clock was
+// never stamped on the exec path, leaving mtime 0 or a stale value)
+r = await sb.exec("echo stamped > /stamp.txt");
+const stampMtime = (await fs.stat("/stamp.txt")).mtime;
+assert.ok(Math.abs(stampMtime - Date.now()) < 60_000, `shell-write mtime ${stampMtime}`);
+
 // two sandboxes share one filesystem
 const sb2 = new Sandbox({ fs, engine });
 r = await sb2.exec("cat /src/renamed.txt");

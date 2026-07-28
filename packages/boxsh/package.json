@@ -43,7 +43,7 @@
     "build": "tsc",
     "build:engine": "node scripts/build-engine.mjs",
     "prepack": "npm run build && node scripts/sync-docs.mjs && node scripts/check-engine.mjs",
-    "test": "node test/smoke.mjs && node test/api.mjs && node test/idb.mjs",
+    "test": "node test/smoke.mjs && node test/api.mjs && node test/idb.mjs && node test/docs.mjs",
     "test:bundled": "node test/bundled.mjs",
     "test:browser": "playwright test --config test/browser/playwright.config.mjs"
   },

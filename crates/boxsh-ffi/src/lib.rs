@@ -45,7 +45,20 @@ struct SandboxState {
     session: Session,
 }
 
-static REGISTRY: Mutex<Vec<Option<SandboxState>>> = Mutex::new(Vec::new());
+/// Slot lifecycle. `Busy` marks a state checked out by a running exec so
+/// the registry lock need not be held during execution — and so a
+/// concurrent `boxsh_sandbox_new` can never claim the slot and be
+/// clobbered when the exec finishes.
+enum Slot {
+    Vacant,
+    Busy,
+    Occupied(SandboxState),
+}
+
+static REGISTRY: Mutex<Vec<Slot>> = Mutex::new(Vec::new());
+
+/// The handle's sandbox is executing on another thread. EBUSY-shaped.
+pub const ERR_BUSY: i32 = -11;
 
 fn default_session() -> Session {
     let mut session = Session::new();
@@ -72,12 +85,14 @@ fn with_state<T>(
     f: impl FnOnce(&mut SandboxState) -> Result<T, i32>,
 ) -> Result<T, i32> {
     let mut registry = REGISTRY.lock().expect("registry poisoned");
-    let state = usize::try_from(handle)
+    match usize::try_from(handle)
         .ok()
         .and_then(|i| registry.get_mut(i))
-        .and_then(Option::as_mut)
-        .ok_or(ERR_BAD_HANDLE)?;
-    f(state)
+    {
+        Some(Slot::Occupied(state)) => f(state),
+        Some(Slot::Busy) => Err(ERR_BUSY),
+        _ => Err(ERR_BAD_HANDLE),
+    }
 }
 
 /// A shell-visible backend over the shared filesystem: borrows per call so
@@ -191,13 +206,15 @@ pub extern "C" fn boxsh_sandbox_new() -> i32 {
         session: default_session(),
     };
     let mut registry = REGISTRY.lock().expect("registry poisoned");
-    match registry.iter().position(Option::is_none) {
+    // Only truly vacant slots are reusable — Busy ones belong to an exec
+    // in flight on another thread.
+    match registry.iter().position(|s| matches!(s, Slot::Vacant)) {
         Some(i) => {
-            registry[i] = Some(state);
+            registry[i] = Slot::Occupied(state);
             i32::try_from(i).expect("handle fits in i32")
         }
         None => {
-            registry.push(Some(state));
+            registry.push(Slot::Occupied(state));
             i32::try_from(registry.len() - 1).expect("handle fits in i32")
         }
     }
@@ -211,10 +228,11 @@ pub extern "C" fn boxsh_sandbox_free(handle: i32) -> i32 {
         .ok()
         .and_then(|i| registry.get_mut(i))
     {
-        Some(slot) if slot.is_some() => {
-            *slot = None;
+        Some(slot @ Slot::Occupied(_)) => {
+            *slot = Slot::Vacant;
             OK
         }
+        Some(Slot::Busy) => ERR_BUSY,
         _ => ERR_BAD_HANDLE,
     }
 }
@@ -265,15 +283,26 @@ pub unsafe extern "C" fn boxsh_sandbox_exec(
         Err(code) => return code,
     };
 
-    // Take the state out so the registry lock is not held during execution.
+    // Check the state out, marking the slot Busy so the registry lock is
+    // not held during execution and the slot cannot be reused meanwhile.
     let taken = {
         let mut registry = REGISTRY.lock().expect("registry poisoned");
-        match usize::try_from(handle)
+        let Some(slot) = usize::try_from(handle)
             .ok()
             .and_then(|i| registry.get_mut(i))
-        {
-            Some(slot) if slot.is_some() => slot.take().expect("checked"),
-            _ => return ERR_BAD_HANDLE,
+        else {
+            return ERR_BAD_HANDLE;
+        };
+        match std::mem::replace(slot, Slot::Busy) {
+            Slot::Occupied(state) => state,
+            other => {
+                let code = match other {
+                    Slot::Busy => ERR_BUSY,
+                    _ => ERR_BAD_HANDLE,
+                };
+                *slot = other;
+                return code;
+            }
         }
     };
     let SandboxState {
@@ -293,7 +322,7 @@ pub unsafe extern "C" fn boxsh_sandbox_exec(
         .into_inner();
 
     REGISTRY.lock().expect("registry poisoned")[usize::try_from(handle).expect("checked")] =
-        Some(SandboxState { fs, session });
+        Slot::Occupied(SandboxState { fs, session });
 
     emit(out, result.stdout);
     emit(err, result.stderr);
@@ -405,6 +434,27 @@ pub unsafe extern "C" fn boxsh_sandbox_import_tar(
     }
 }
 
+/// Test-only: force a slot into the Busy state an in-flight exec would
+/// hold, so the transition rules are testable without a thread race.
+#[cfg(test)]
+fn set_busy_for_test(handle: i32) -> Option<SandboxState> {
+    let mut registry = REGISTRY.lock().expect("registry poisoned");
+    let slot = registry.get_mut(usize::try_from(handle).ok()?)?;
+    match std::mem::replace(slot, Slot::Busy) {
+        Slot::Occupied(state) => Some(state),
+        other => {
+            *slot = other;
+            None
+        }
+    }
+}
+
+#[cfg(test)]
+fn restore_for_test(handle: i32, state: SandboxState) {
+    let mut registry = REGISTRY.lock().expect("registry poisoned");
+    registry[usize::try_from(handle).expect("test handle")] = Slot::Occupied(state);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -462,6 +512,78 @@ mod tests {
 
         assert_eq!(boxsh_sandbox_free(h), OK);
         assert_eq!(boxsh_sandbox_free(h), ERR_BAD_HANDLE);
+    }
+
+    #[test]
+    fn busy_slots_are_never_reused_or_freed() {
+        // Regression: exec used to leave its slot looking vacant, so a
+        // concurrent boxsh_sandbox_new could claim it and be clobbered
+        // when the exec finished.
+        let h = boxsh_sandbox_new();
+        exec(h, "export KEEP=alive");
+        let state = set_busy_for_test(h).expect("occupied");
+
+        // A new sandbox must not take the busy slot.
+        let h2 = boxsh_sandbox_new();
+        assert_ne!(h2, h, "busy slot handed out to a new sandbox");
+
+        // Ops and free on a busy handle say busy, not bad-handle.
+        assert_eq!(boxsh_sandbox_free(h), ERR_BUSY);
+        let mut out = BoxshBuf {
+            ptr: core::ptr::null_mut(),
+            len: 0,
+        };
+        assert_eq!(
+            unsafe { boxsh_sandbox_read_file(h, "x".as_ptr(), 1, &mut out) },
+            ERR_BUSY
+        );
+        let (_, _, code) = exec(h, "true");
+        assert_eq!(code, ERR_BUSY);
+
+        // The finishing exec restores the state intact.
+        restore_for_test(h, state);
+        let (out2, _, code) = exec(h, "echo $KEEP");
+        assert_eq!((out2.as_str(), code), ("alive\n", 0));
+        assert_eq!(boxsh_sandbox_free(h), OK);
+        assert_eq!(boxsh_sandbox_free(h2), OK);
+    }
+
+    #[test]
+    fn concurrent_new_free_churn_never_clobbers_an_exec() {
+        // Probabilistic companion to the transition test: hammer new/free
+        // on other threads while sandboxes execute, then verify their
+        // sessions and files survived untouched.
+        let workers: Vec<_> = (0..4)
+            .map(|w| {
+                std::thread::spawn(move || {
+                    let h = boxsh_sandbox_new();
+                    exec_raw(
+                        h,
+                        &format!("export MARK={w} && seq 1 2000 | sort -r > /n.txt"),
+                    );
+                    for _ in 0..50 {
+                        let t = boxsh_sandbox_new();
+                        assert_eq!(boxsh_sandbox_free(t), OK);
+                    }
+                    let (out, _, code) = exec_owned(h, "echo $MARK && head -1 /n.txt");
+                    assert_eq!(code, 0);
+                    assert_eq!(out, format!("{w}\n999\n"));
+                    assert_eq!(boxsh_sandbox_free(h), OK);
+                })
+            })
+            .collect();
+        for w in workers {
+            w.join().expect("worker panicked");
+        }
+    }
+
+    fn exec_raw(h: i32, script: &str) {
+        let (_, err, code) = exec_owned(h, script);
+        assert!(code >= 0, "exec failed: {code} {err}");
+    }
+
+    fn exec_owned(h: i32, script: &str) -> (String, String, i32) {
+        exec(h, script)
     }
 
     #[test]

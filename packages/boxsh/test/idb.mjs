@@ -16,6 +16,31 @@ import {
   BoxshError,
 } from "../dist/index.js";
 
+// Newer runtimes (Node 26+, all browsers) have Web Locks, which makes the
+// exclusive-by-default backends reject concurrent same-name opens. Install
+// a minimal ifAvailable-faithful shim where locks are missing so this suite
+// always runs under the semantics those runtimes enforce (regression: the
+// abandoned-tab tests once relied on Node lacking locks entirely).
+if (!globalThis.navigator?.locks) {
+  const held = new Set();
+  const locks = {
+    async request(name, opts, cb) {
+      if (held.has(name)) {
+        if (opts?.ifAvailable) return await cb(null);
+        throw new Error("locks shim supports ifAvailable requests only");
+      }
+      held.add(name);
+      try {
+        return await cb({ name, mode: "exclusive" });
+      } finally {
+        held.delete(name);
+      }
+    },
+  };
+  if (globalThis.navigator) Object.defineProperty(globalThis.navigator, "locks", { value: locks });
+  else globalThis.navigator = { locks };
+}
+
 const p = (rel) => fileURLToPath(new URL(rel, import.meta.url));
 const fsModule = await WebAssembly.compile(
   readFileSync(p("../../../target/wasm32-wasip1/release/boxsh_abi.wasm")),
@@ -81,11 +106,11 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // --- background write-behind drains without an explicit flush ---
 {
-  const b = await open("behind", { flushDebounceMs: 20 });
+  const b = await open("behind", { flushDebounceMs: 20, lock: "none" });
   const fs = await Filesystem.create({ backend: b });
   await fs.writeFile("/auto.txt", "drained");
   await sleep(200); // no flush(), no close(): simulate an abandoned tab
-  const b2 = await open("behind");
+  const b2 = await open("behind", { lock: "none" });
   const fs2 = await Filesystem.create({ backend: b2 });
   assert.equal(await fs2.readFile("/auto.txt", "utf-8"), "drained");
   await b2.close();
@@ -102,12 +127,7 @@ const commandsPath = p(
 if (!existsSync(commandsPath)) {
   console.log("idb: sandbox end-to-end SKIPPED (command modules not built)");
 } else {
-  const engine = await loadEngine({
-    commands: readFileSync(commandsPath),
-    optimizedCommands: readFileSync(
-      p("../../../examples/playground/hot-demo/target/wasm32-wasip1/release/hot_demo.wasm"),
-    ),
-  });
+  const engine = await loadEngine({ commands: readFileSync(commandsPath) });
   const b = await open("sandbox");
   const fs = await Filesystem.create({ backend: b });
   const sb = new Sandbox({ fs, engine });
@@ -132,12 +152,12 @@ if (!existsSync(commandsPath)) {
 // signal must still get those writes scheduled for replication.
 if (existsSync(commandsPath)) {
   const engine = await loadEngine({ commands: readFileSync(commandsPath) });
-  const b = await open("push", { flushDebounceMs: 20 });
+  const b = await open("push", { flushDebounceMs: 20, lock: "none" });
   const fs = await Filesystem.create({ backend: b });
   const sb = new Sandbox({ fs, engine });
   await sb.exec("echo pushed > /via-shell.txt && seq 1 3 | tee /via-tee.txt");
   await sleep(250); // no flush(), no close(): the push must have scheduled the drain
-  const b2 = await open("push");
+  const b2 = await open("push", { lock: "none" });
   const fs2 = await Filesystem.create({ backend: b2 });
   assert.equal(await fs2.readFile("/via-shell.txt", "utf-8"), "pushed\n");
   assert.equal(await fs2.readFile("/via-tee.txt", "utf-8"), "1\n2\n3\n");
@@ -151,7 +171,9 @@ if (existsSync(commandsPath)) {
   const fs = await Filesystem.create({ backend: memory() });
   await fs.mkdir("/keep");
   await fs.writeFile("/keep/data.txt", "migrated");
-  await fs.switchBackend(await open("migrate"));
+  const b1 = await open("migrate");
+  await fs.switchBackend(b1);
+  await b1.close(); // release the name (and its Web Lock, where locks exist)
 
   const b2 = await open("migrate");
   const fs2 = await Filesystem.create({ backend: b2 });
@@ -173,6 +195,16 @@ if (existsSync(commandsPath)) {
   assert.equal(await fs2.exists("/f"), false, "destroyed filesystem is empty");
   await b2.close();
   console.log("idb: destroy OK");
+}
+
+// --- Web Lock exclusivity: second open rejects, close releases ---
+{
+  const b = await open("locked");
+  await assert.rejects(() => open("locked"), /already open/);
+  await b.close();
+  const b2 = await open("locked");
+  await b2.close();
+  console.log("idb: lock exclusivity OK");
 }
 
 // --- closed backends refuse work ---

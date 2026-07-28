@@ -18,7 +18,8 @@ typedef struct {
   size_t len;
 } boxsh_buf;
 
-/* Sandbox lifecycle. A handle owns a filesystem and a shell session. */
+/* Sandbox lifecycle. A handle owns a filesystem and a shell session.
+ * -11 (busy) means the handle is executing on another thread. */
 int32_t boxsh_sandbox_new(void);
 int32_t boxsh_sandbox_free(int32_t handle);
 
