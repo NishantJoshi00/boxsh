@@ -36,7 +36,7 @@ jobs:
         run: |
           node -e '
             const fs = require("fs");
-            for (const f of ["engine/commands.wasm", "engine/commands-optimized.wasm"]) {
+            for (const f of ["engine/commands.wasm", "engine/fs.wasm"]) {
               if (!WebAssembly.validate(fs.readFileSync(f))) {
                 console.error(`invalid wasm: ${f}`);
                 process.exit(1);

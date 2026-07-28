@@ -1,0 +1,112 @@
+name: release
+
+# Tag-driven releases: push a v* tag and this verifies the whole matrix,
+# builds the real engine bundle, attaches the npm tarball to a GitHub
+# Release with the CHANGELOG section as notes, and publishes to npm when
+# an NPM_TOKEN secret is configured (skips gracefully otherwise).
+# workflow_dispatch runs everything as a dry run: build + verify + pack,
+# no release, no publish.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+      - run: rustup target add wasm32-wasip1
+      # Pinned: apt's binaryen 117 emits stale draft type encodings under
+      # --all-features that browsers reject ("bad type" on engine load).
+      - name: Install binaryen (wasm-opt)
+        run: |
+          curl -sSL https://github.com/WebAssembly/binaryen/releases/download/version_131/binaryen-version_131-x86_64-linux.tar.gz | tar xz -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/binaryen-version_131/bin" >> "$GITHUB_PATH"
+
+      - name: Tag matches package version
+        if: github.event_name == 'push'
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          pkg=$(node -p "require('./packages/boxsh/package.json').version")
+          if [ "$tag" != "$pkg" ]; then
+            echo "tag v$tag != package.json $pkg" >&2
+            exit 1
+          fi
+
+      # Tags don't trigger ci.yml (it watches branches), so the release
+      # runs the gates itself: a bad tag cannot ship.
+      - name: Rust tests (native)
+        run: cargo test --workspace
+      - name: Build engine bundle (cold commands + sandbox module, wasm-opt'd)
+        working-directory: packages/boxsh
+        run: |
+          npm ci
+          npm run build
+          npm run build:engine
+      - name: JS test suite
+        working-directory: packages/boxsh
+        run: npm test
+      - name: Bundled-engine packaging test
+        working-directory: packages/boxsh
+        run: npm run test:bundled
+      - name: Browser suite (IndexedDB + OPFS in Chromium)
+        working-directory: packages/boxsh
+        run: |
+          npx playwright install chromium --with-deps
+          npm run test:browser
+
+      - name: Pack tarball
+        id: pack
+        working-directory: packages/boxsh
+        run: |
+          file=$(npm pack | tail -1)
+          echo "file=$file" >> "$GITHUB_OUTPUT"
+
+      - name: Extract changelog section
+        if: github.event_name == 'push'
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          awk -v v="$version" '
+            $0 ~ "^## " v " " || $0 ~ "^## " v "$" { on = 1; next }
+            /^## / && on { exit }
+            on { print }
+          ' CHANGELOG.md > /tmp/notes.md
+          if [ ! -s /tmp/notes.md ]; then
+            echo "No CHANGELOG.md section for $version" >&2
+            exit 1
+          fi
+
+      - name: Create GitHub release
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --title "boxsh $GITHUB_REF_NAME" \
+            --notes-file /tmp/notes.md \
+            "packages/boxsh/${{ steps.pack.outputs.file }}"
+
+      - name: Publish to npm
+        if: github.event_name == 'push'
+        working-directory: packages/boxsh
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ -z "$NODE_AUTH_TOKEN" ]; then
+            echo "NPM_TOKEN not configured — skipping npm publish (tarball is on the GitHub release)."
+            exit 0
+          fi
+          npm publish
