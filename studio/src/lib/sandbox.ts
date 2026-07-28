@@ -9,20 +9,26 @@ import {
   type StorageBackend,
 } from "@boxsh/sandbox";
 import commandsUrl from "@boxsh/sandbox/engine/commands.wasm?url";
+// Imported as an asset (not left to the package's import.meta.url default)
+// so Vite serves it in dev — the symlinked package sits outside the dev
+// server's fs allow-list, and only module-graph files escape that check.
+import fsWasmUrl from "@boxsh/sandbox/engine/fs.wasm?url";
 import { useStudio, type BackendKind } from "./store";
 import { DATA_ROOT, initializeSkillWorkspace } from "./skills";
 
 /** Stable name so IndexedDB/OPFS reloads rehydrate the same data. */
 const FS_NAME = "studio";
 
+const fsModule = () => new URL(fsWasmUrl, window.location.href);
+
 function createBackend(kind: BackendKind): Promise<StorageBackend> {
   switch (kind) {
     case "indexeddb":
-      return indexeddb({ name: FS_NAME });
+      return indexeddb({ name: FS_NAME, module: fsModule() });
     case "opfs":
-      return opfs({ name: FS_NAME });
+      return opfs({ name: FS_NAME, module: fsModule() });
     default:
-      return wasmMemory();
+      return wasmMemory({ module: fsModule() });
   }
 }
 
@@ -52,7 +58,7 @@ export function initSandbox(): Promise<{ fs: Filesystem; engine: BoxshEngine }> 
     } catch (err) {
       backendInitError = err instanceof Error ? err.message : String(err);
       useStudio.getState().setBackendKind("memory");
-      backend = await wasmMemory();
+      backend = await wasmMemory({ module: fsModule() });
     }
     const [fs, engine] = await Promise.all([
       Filesystem.create({ backend }),
