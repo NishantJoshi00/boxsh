@@ -4,7 +4,8 @@
 // one IndexedDB transaction per drain so the stored tree is always a
 // consistent snapshot. See boxsh-fs DESIGN.md for the replication contract.
 import type { StorageBackend } from "../backend.js";
-import { compileModule, load, type ModuleSource } from "../loader.js";
+import { compileModule, load } from "../loader.js";
+import type { EngineSource } from "../module-source.js";
 import {
   acquireLock,
   replicatedBackend,
@@ -16,7 +17,7 @@ export interface IndexedDBBackendOptions {
   /** Logical filesystem name; maps to database "boxsh-fs:<name>". */
   name: string;
   /** Filesystem wasm module; defaults to the one bundled with the package. */
-  module?: ModuleSource;
+  module?: EngineSource;
   /** Delay before a background flush after a mutation. Default 100 ms. */
   flushDebounceMs?: number;
   /**

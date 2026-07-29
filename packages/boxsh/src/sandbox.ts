@@ -10,9 +10,9 @@ import {
   encodePathList,
   type BoxshInstance,
   type CommandHost,
-  type ModuleSource,
 } from "./loader.js";
 import type { WasmFsInfo } from "./backends/wasmfs.js";
+import type { EngineSource, LoadEngineOptions } from "./module-source.js";
 
 const enc = new TextEncoder();
 const dec = new TextDecoder();
@@ -38,8 +38,6 @@ export interface SandboxOptions {
   cwd?: string;
 }
 
-type EngineSource = ModuleSource;
-
 type ShellExports = {
   boxsh_fs_set_time?: (handle: number, nowMs: bigint) => number;
   boxsh_shell_exec?: (
@@ -64,10 +62,7 @@ type ShellExports = {
  * `optimizedCommands` is accepted for compatibility and ignored: the
  * optimized commands now live inside the sandbox module itself.
  */
-export async function loadEngine(source?: {
-  commands: EngineSource;
-  optimizedCommands?: EngineSource;
-}): Promise<BoxshEngine> {
+export async function loadEngine(source?: LoadEngineOptions): Promise<BoxshEngine> {
   const src = source ?? { commands: new URL("../engine/commands.wasm", import.meta.url) };
   return { cold: await compileModule(src.commands) } as unknown as BoxshEngine;
 }

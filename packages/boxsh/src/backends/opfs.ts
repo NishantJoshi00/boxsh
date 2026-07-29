@@ -6,7 +6,8 @@
 // written at the end of each drain; a missing or stale sidecar degrades to
 // default mtimes, never a broken tree.
 import type { StorageBackend } from "../backend.js";
-import { compileModule, load, type ModuleSource } from "../loader.js";
+import { compileModule, load } from "../loader.js";
+import type { EngineSource } from "../module-source.js";
 import {
   acquireLock,
   replicatedBackend,
@@ -18,7 +19,7 @@ export interface OpfsBackendOptions {
   /** Logical filesystem name; maps to OPFS directory "boxsh-fs/<name>". */
   name: string;
   /** Filesystem wasm module; defaults to the one bundled with the package. */
-  module?: ModuleSource;
+  module?: EngineSource;
   /** Delay before a background flush after a mutation. Default 100 ms. */
   flushDebounceMs?: number;
   /** Called when a background flush fails; a retry stays scheduled. */

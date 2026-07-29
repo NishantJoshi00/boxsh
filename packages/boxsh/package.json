@@ -40,9 +40,11 @@
     "access": "public"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "node scripts/clean-dist.mjs && tsc",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test:types": "tsc -p test/types/tsconfig.node.json && tsc -p test/types/tsconfig.browser.json && node scripts/check-package-types.mjs",
     "build:engine": "node scripts/build-engine.mjs",
-    "prepack": "npm run build && node scripts/sync-docs.mjs && node scripts/check-engine.mjs",
+    "prepack": "npm run build && npm run test:types && node scripts/sync-docs.mjs && node scripts/check-engine.mjs",
     "test": "node test/smoke.mjs && node test/api.mjs && node test/idb.mjs && node test/docs.mjs",
     "test:bundled": "node test/bundled.mjs",
     "test:browser": "playwright test --config test/browser/playwright.config.mjs"

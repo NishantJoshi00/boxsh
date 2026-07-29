@@ -81,7 +81,23 @@ through the standard module.
 ## TypeScript
 
 boxsh includes its own type declarations. No separate `@types` package is
-needed.
+needed. Runtime values and their related public types are available from the
+same package entrypoint:
+
+```ts
+import { Filesystem, loadEngine, wasmMemory } from "@boxsh/sandbox";
+import type {
+  EngineSource,
+  ExecOutput,
+  LoadEngineOptions,
+  StorageBackend,
+} from "@boxsh/sandbox";
+```
+
+The declarations support strict Node ESM and browser/bundler projects. Method
+overloads preserve useful inference—for example, `readFile(path)` returns
+`Promise<Uint8Array>`, while `readFile(path, "utf-8")` returns
+`Promise<string>`.
 
 ## Next steps
 

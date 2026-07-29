@@ -6,6 +6,7 @@ export {
   type BoxshEngine,
   type SandboxOptions,
 } from "./sandbox.js";
+export { type EngineSource, type LoadEngineOptions } from "./module-source.js";
 export { memory } from "./backends/memory.js";
 export {
   indexeddb,

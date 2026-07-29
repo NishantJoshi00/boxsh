@@ -48,6 +48,8 @@ Build and test the JavaScript package:
 
 ```sh
 npm run build --prefix packages/boxsh
+npm run typecheck --prefix packages/boxsh
+npm run test:types --prefix packages/boxsh
 npm test --prefix packages/boxsh
 ```
 

@@ -6,18 +6,20 @@ The public package exports `Filesystem`, `Sandbox`, `loadEngine`, `memory`,
 ## `loadEngine`
 
 ```ts
-type EngineSource =
+export type EngineSource =
   | string
   | URL
   | BufferSource
   | WebAssembly.Module;
 
-function loadEngine(): Promise<BoxshEngine>;
-
-function loadEngine(source: {
+export interface LoadEngineOptions {
   commands: EngineSource;
   optimizedCommands?: EngineSource;
-}): Promise<BoxshEngine>;
+}
+
+function loadEngine(): Promise<BoxshEngine>;
+
+function loadEngine(source: LoadEngineOptions): Promise<BoxshEngine>;
 ```
 
 Loads the command modules used by a `Sandbox`. With no arguments,
@@ -27,6 +29,9 @@ Pass explicit sources to load the modules from a CDN, a custom build, fetched
 buffers, or already compiled `WebAssembly.Module` objects. The
 `optimizedCommands` source is optional; when omitted, every command runs
 through the standard module.
+
+`EngineSource` and `LoadEngineOptions` are exported from
+`@boxsh/sandbox` for applications that wrap or configure engine loading.
 
 ## `Filesystem`
 

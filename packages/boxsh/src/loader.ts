@@ -1,3 +1,5 @@
+import type { EngineSource } from "./module-source.js";
+
 const WASI_MODULE = "wasi_snapshot_preview1";
 const HOST_MODULE = "boxsh_host";
 const ESUCCESS = 0;
@@ -203,7 +205,7 @@ export async function load(
   };
 }
 
-export type ModuleSource = string | URL | BufferSource | WebAssembly.Module;
+export type ModuleSource = EngineSource;
 
 /** Compile a wasm module from a URL, buffer, or precompiled module. */
 export async function compileModule(s: ModuleSource): Promise<WebAssembly.Module> {
@@ -221,5 +223,7 @@ export async function compileModule(s: ModuleSource): Promise<WebAssembly.Module
       return WebAssembly.compile(await resp.arrayBuffer());
     }
   }
-  return WebAssembly.compile(s);
+  // Node's Buffer is an ArrayBufferView<ArrayBufferLike>; WebAssembly accepts
+  // it at runtime even though the DOM library's BufferSource is narrower.
+  return WebAssembly.compile(s as BufferSource);
 }

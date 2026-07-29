@@ -3,14 +3,15 @@
 // in the Rust wasm module; this adapter only moves archive bytes. Useful as
 // a snapshot/seed backend anywhere — browsers, Node, tests.
 import type { StorageBackend } from "../backend.js";
-import { compileModule, load, type ModuleSource } from "../loader.js";
+import { compileModule, load } from "../loader.js";
+import type { EngineSource } from "../module-source.js";
 import { wasmFilesystem } from "./wasmfs.js";
 
 export interface TarBackendOptions {
   /** Initial contents; an empty workspace when omitted. */
   tar?: Uint8Array;
   /** Filesystem wasm module; defaults to the one bundled with the package. */
-  module?: ModuleSource;
+  module?: EngineSource;
   /**
    * Receives the current archive on every `flush()` and on `close()` —
    * write it to disk, offer it as a download, store it wherever. Without

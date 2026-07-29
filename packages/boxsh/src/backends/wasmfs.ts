@@ -4,7 +4,8 @@
 // for the export conventions mirrored here.
 import type { BackendEntry, StorageBackend } from "../backend.js";
 import { BoxshError, type ErrnoCode } from "../errors.js";
-import { compileModule, load, type BoxshInstance, type ModuleSource } from "../loader.js";
+import { compileModule, load, type BoxshInstance } from "../loader.js";
+import type { EngineSource } from "../module-source.js";
 
 const enc = new TextEncoder();
 const dec = new TextDecoder();
@@ -48,12 +49,14 @@ interface FsExports {
 }
 
 /** Wiring the in-module shell needs to reach a backend's filesystem. */
+/** @internal */
 export interface WasmFsInfo {
   instance: BoxshInstance;
   handle: number;
 }
 
 /** A StorageBackend whose state lives in a wasm filesystem instance. */
+/** @internal */
 export interface WasmFsBackend extends StorageBackend {
   /** Drain the replication journal (see boxsh-fs DESIGN.md). */
   takeDirty(): string[];
@@ -69,7 +72,7 @@ export interface WasmFsBackend extends StorageBackend {
 
 export interface WasmMemoryBackendOptions {
   /** Filesystem wasm module; defaults to the one bundled with the package. */
-  module?: ModuleSource;
+  module?: EngineSource;
 }
 
 /**
@@ -83,6 +86,7 @@ export async function wasmMemory(options: WasmMemoryBackendOptions = {}): Promis
 }
 
 /** Open a filesystem inside a loaded boxsh module. */
+/** @internal */
 export function wasmFilesystem(instance: BoxshInstance): WasmFsBackend {
   const candidate = instance.exports as Partial<FsExports>;
   if (typeof candidate.boxsh_fs_new !== "function") {
