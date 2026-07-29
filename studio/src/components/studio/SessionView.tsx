@@ -202,7 +202,7 @@ export function SessionView({ session }: { session: AgentSession }) {
               className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-2"
             >
               {m.role === "user" ? (
-                <div className="justify-self-end max-w-[85%] rounded-xl bg-primary text-primary-foreground px-3.5 py-2 text-sm whitespace-pre-wrap">
+                <div className="justify-self-end max-w-[85%] rounded-[1.75rem] bg-[#2b2b2b] text-white px-4 py-2.5 text-sm whitespace-pre-wrap">
                   {m.parts
                     .filter((p) => p.type === "text")
                     .map((p) => (p as { text: string }).text)

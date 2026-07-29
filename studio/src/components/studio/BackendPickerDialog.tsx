@@ -2,7 +2,6 @@ import { useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
   ArrowLeft,
-  Box,
   ChevronRight,
   Database,
   HardDrive,
@@ -37,14 +36,14 @@ import {
   type SavedSandbox,
 } from "@/lib/store";
 
-interface BackendOption {
+export interface BackendOption {
   kind: BackendKind;
   label: string;
   description: string;
   icon: LucideIcon;
 }
 
-const BACKENDS: BackendOption[] = [
+export const BACKENDS: BackendOption[] = [
   {
     kind: "memory",
     label: "In-memory",
@@ -65,14 +64,14 @@ const BACKENDS: BackendOption[] = [
   },
 ];
 
-const backendOption = (kind: BackendKind) =>
+export const backendOption = (kind: BackendKind) =>
   BACKENDS.find((option) => option.kind === kind) ?? BACKENDS[0];
 
 const sandboxKey = (
   sandbox: Pick<SavedSandbox, "id" | "backendKind">,
 ) => `${sandbox.backendKind}:${sandbox.id}`;
 
-function BackendChoice({
+export function BackendChoice({
   option,
   onSelect,
 }: {
@@ -187,6 +186,7 @@ export function BackendPickerDialog() {
   const [query, setQuery] = useState("");
 
   const currentOption = backendOption(kind);
+  const CurrentIcon = currentOption.icon;
   const next = target ? backendOption(target) : undefined;
   const currentKey = `${kind}:${sandboxId}`;
   const saved = [...savedSandboxes].sort(
@@ -309,7 +309,7 @@ export function BackendPickerDialog() {
             />
           }
         >
-          <Box />
+          <CurrentIcon />
         </TooltipTrigger>
         <TooltipContent side="right">{currentOption.label}</TooltipContent>
       </Tooltip>
