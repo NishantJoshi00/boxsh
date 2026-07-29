@@ -31,6 +31,7 @@ import {
 import { sharedFs } from "@/lib/sandbox";
 import { onFsChanged } from "@/lib/events";
 import { cn } from "@/lib/utils";
+import { WorkspaceFileActions } from "./WorkspaceFileActions";
 
 const PREVIEW_LIMIT = 512 * 1024;
 /** Above this, skip Shiki and show plain text — highlighting gets slow. */
@@ -251,8 +252,9 @@ export function FilesView({ hidden }: { hidden: boolean }) {
       <ResizablePanelGroup orientation="horizontal">
         <ResizablePanel defaultSize="30" minSize="18">
           <div className="flex h-full flex-col">
-            <div className="flex items-center border-b px-3 py-2 pl-12">
+            <div className="flex items-center border-b px-3 py-1 pl-12">
               <span className="text-sm font-medium">Files</span>
+              <WorkspaceFileActions />
             </div>
             <ScrollArea className="flex-1 min-h-0">
               <div className="p-1.5">

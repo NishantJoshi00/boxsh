@@ -32,7 +32,7 @@ import { useStudio, type AgentSession } from "@/lib/store";
 import { sessionShortcutKeys, shortcut } from "@/lib/shortcuts";
 import { chatFor, disposeChat } from "@/lib/agent/chats";
 import { BackendPickerDialog } from "./BackendPickerDialog";
-import { WorkspaceFileActions } from "./WorkspaceFileActions";
+import { TransferDialog } from "./TransferDialog";
 
 /** Provider icon that turns into a spinner while the session's agent runs. */
 function SessionIcon({ session }: { session: AgentSession }) {
@@ -189,7 +189,9 @@ export function AppSidebar() {
               <TooltipContent side="top">Add skill</TooltipContent>
             </Tooltip>
           </div>
-          <WorkspaceFileActions />
+          <div className="ml-auto flex items-center group-data-[collapsible=icon]:hidden">
+            <TransferDialog />
+          </div>
         </div>
       </SidebarFooter>
     </Sidebar>

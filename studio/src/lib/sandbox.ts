@@ -157,6 +157,19 @@ export async function switchWorkspaceBackend(
   useStudio.getState().activateSandbox(target);
 }
 
+/** Create a fresh sandbox on `kind` and load an exported workspace tree into it. */
+export async function importWorkspaceSandbox(
+  kind: BackendKind,
+  name: string,
+  tar: Uint8Array,
+): Promise<void> {
+  const { fs } = await initSandbox();
+  const target = { id: generateSandboxId(), name, backendKind: kind };
+  await openBackend(fs, await createBackend(kind, target.id));
+  await fs.import(tar);
+  useStudio.getState().activateSandbox(target);
+}
+
 /** Open a saved sandbox without copying the current workspace into it. */
 export async function openWorkspaceSandbox(sandbox: SavedSandbox): Promise<void> {
   const studio = useStudio.getState();

@@ -117,7 +117,7 @@ export function WorkspaceFileActions() {
   };
 
   return (
-    <div className="ml-auto flex items-center group-data-[collapsible=icon]:hidden">
+    <div className="ml-auto flex items-center">
       <NewFolderButton />
       <input
         ref={uploadRef}

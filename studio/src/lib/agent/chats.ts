@@ -51,38 +51,55 @@ function sandboxFor(sessionId: string): Promise<Sandbox> {
   return sb;
 }
 
+function createChat(
+  sessionId: string,
+  messages?: StudioUIMessage[],
+): Chat<StudioUIMessage> {
+  const agent = new ToolLoopAgent({
+    model: resolveModel(sessionId),
+    instructions: prompts[sessionProvider(sessionId)],
+    tools: makeTools({
+      session: () => sandboxFor(sessionId),
+      fs: sharedFs,
+      onMutate: emitFsChanged,
+    }),
+    stopWhen: isStepCount(30),
+    // Provider, model, and key live in the store and can change between
+    // turns (the session's provider dropdown); re-resolve on every call.
+    prepareCall: async ({ options: _options, ...rest }) => {
+      const skills = await discoverInstalledSkills(await sharedFs());
+      return {
+        ...rest,
+        model: resolveModel(sessionId),
+        instructions: appendSkillsPrompt(
+          prompts[sessionProvider(sessionId)],
+          skills,
+        ),
+      };
+    },
+  });
+  return new Chat<StudioUIMessage>({
+    transport: new DirectChatTransport({ agent }),
+    messages,
+  });
+}
+
 export function chatFor(sessionId: string): Chat<StudioUIMessage> {
   let chat = chats.get(sessionId);
   if (!chat) {
-    const agent = new ToolLoopAgent({
-      model: resolveModel(sessionId),
-      instructions: prompts[sessionProvider(sessionId)],
-      tools: makeTools({
-        session: () => sandboxFor(sessionId),
-        fs: sharedFs,
-        onMutate: emitFsChanged,
-      }),
-      stopWhen: isStepCount(30),
-      // Provider, model, and key live in the store and can change between
-      // turns (the session's provider dropdown); re-resolve on every call.
-      prepareCall: async ({ options: _options, ...rest }) => {
-        const skills = await discoverInstalledSkills(await sharedFs());
-        return {
-          ...rest,
-          model: resolveModel(sessionId),
-          instructions: appendSkillsPrompt(
-            prompts[sessionProvider(sessionId)],
-            skills,
-          ),
-        };
-      },
-    });
-    chat = new Chat<StudioUIMessage>({
-      transport: new DirectChatTransport({ agent }),
-    });
+    chat = createChat(sessionId);
     chats.set(sessionId, chat);
   }
   return chat;
+}
+
+/** Pre-create a session's chat with a restored transcript (sandbox import). */
+export function seedChat(sessionId: string, messages: StudioUIMessage[]): void {
+  chats.set(sessionId, createChat(sessionId, messages));
+}
+
+export function chatMessages(sessionId: string): StudioUIMessage[] {
+  return chats.get(sessionId)?.messages ?? [];
 }
 
 export function disposeChat(sessionId: string): void {

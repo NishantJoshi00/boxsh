@@ -51,6 +51,7 @@ interface StudioState {
   ) => void;
   removeSavedSandbox: (id: string, backendKind: PersistentBackendKind) => void;
   addSession: () => string;
+  addImportedSession: (session: Omit<AgentSession, "id">) => string;
   removeSession: (id: string) => void;
   setSessionTitle: (id: string, title: string) => void;
   setSessionModel: (id: string, model: string) => void;
@@ -163,6 +164,11 @@ export const useStudio = create<StudioState>()(
             view: { kind: "session", sessionId: id },
           };
         });
+        return id;
+      },
+      addImportedSession: (session) => {
+        const id = nextId();
+        set((st) => ({ sessions: [...st.sessions, { ...session, id }] }));
         return id;
       },
       removeSession: (id) =>
